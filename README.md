@@ -62,6 +62,40 @@ python scripts/train_phase4.py --mode local \
   --split-head --move-identity --shuffle-moves --no-value-head
 ```
 
+## Autonomous Claude Code sandbox (locked-down)
+
+To let Claude Code run fully autonomously (`--dangerously-skip-permissions`) while
+keeping it boxed in — **no host filesystem, no root, no Docker socket, no host
+network, and internet access only to Anthropic + GitHub** — use the hardened
+sandbox in **`docker/sandbox/`**. Full walkthrough:
+**`docs/AUTONOMOUS_CLAUDE_SANDBOX_GUIDE.md`**.
+
+It's two containers: a non-root `claude` container (CUDA + PyTorch + Node + Claude
+Code) with **no direct internet**, behind a **Squid egress proxy** that allows only
+an 11-host allow-list. `/workspace` is a Docker **named volume** (not a host bind
+mount), capabilities are dropped, `no-new-privileges` is set, and RAM/CPU/PID are
+capped. GPU is passed through via the NVIDIA runtime (no host/root access).
+
+```bash
+cd docker/sandbox
+docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi  # 0. confirm GPU reaches Docker
+docker compose up -d --build                                               # 1. build + start (proxy + claude)
+# 2. verify the network jail (see guide Section 2): Anthropic/GitHub reachable, everything else 403, direct egress 000
+./copy-in.sh /path/to/Local-Pokemon-Battle-Model                           # 3. copy a project in (fixes ownership)
+docker compose exec claude bash                                            # 4. log in once: `claude` -> "Log in with your Claude account"
+#    then:  cd /workspace/<project> && pip install -e . --no-deps --no-build-isolation --user
+#           claude --dangerously-skip-permissions
+docker compose cp claude:/workspace/<project> ./review-output             # 5. copy results out and review the diff
+```
+
+Authentication uses your **Claude Pro/Max subscription** by default (no API key).
+What it does **not** block: Claude can still read your login token, modify/delete
+anything in `/workspace`, send file contents to Anthropic, and spend your quota —
+so review the diff before copying changes back to your real repo. See the guide's
+**Troubleshooting** section for the gotchas (Squid non-root logging,
+`platform.claude.com` allow-listing, GPU passthrough, file ownership, the trust
+prompt).
+
 ## Repository Layout
 
 | Path | Purpose |
@@ -72,7 +106,8 @@ python scripts/train_phase4.py --mode local \
 | `scripts/` | Training entry points; `run_curriculum_experiment_local.sh` for the GTX 1650 curriculum |
 | `Autoresearch/` | Experiment harness, registry, **`MASTER_RESEARCH_PLAN.md`** |
 | `docker/` | Dockerfile, compose, entrypoint for local autonomous training |
-| `docs/` | `LOCAL_DOCKER_AUTORESEARCH_SETUP_GUIDE.md` (local) and the RunPod guide (cloud) |
+| `docker/sandbox/` | Hardened locked-down sandbox for autonomous Claude Code (proxy + non-root GPU container) |
+| `docs/` | Setup guides: `LOCAL_DOCKER_AUTORESEARCH_SETUP_GUIDE.md`, the RunPod guide, and `AUTONOMOUS_CLAUDE_SANDBOX_GUIDE.md` |
 | `data/`, `checkpoints/` | Committed processed battles, vocabs, P8-Lean checkpoint |
 | `CLAUDE.md` | Autonomous agent operating manual (local) |
 

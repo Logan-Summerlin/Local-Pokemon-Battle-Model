@@ -24,6 +24,7 @@ docker/sandbox/
 ├── Dockerfile.proxy        # squid container
 ├── squid.conf              # allow-list policy
 ├── allowed_domains.txt     # the 11 permitted hostnames
+├── copy-in.sh / copy-in.cmd# copy a project into /workspace with correct ownership
 ├── .env.example            # optional: only for API-key billing instead of a subscription
 └── .gitignore              # keeps .env and review-output out of git
 ```
@@ -127,21 +128,37 @@ docker compose logs -f proxy     # TCP_DENIED lines = blocked attempts
 ## 3. Copy your project IN (no host bind mount)
 
 The workspace is a Docker **named volume**, not a mount of a host directory, so
-Claude can never walk up out of `/workspace` into your real filesystem. Use
-`docker compose cp` to push a copy of your project into the volume:
+Claude can never walk up out of `/workspace` into your real filesystem.
+
+**Use the helper script** (from `docker/sandbox/`) — it copies the project in
+**and** fixes file ownership in one step:
 
 ```bash
-# From your project's parent directory. This COPIES (does not mount) the tree.
-docker compose -f docker/sandbox/docker-compose.yml cp \
-    ./my-project claude:/workspace/my-project
+# Linux / macOS
+./copy-in.sh /path/to/my-project
 
-# Fix ownership so the non-root 'claude' user can write to it
-docker compose -f docker/sandbox/docker-compose.yml exec -u root claude \
-    chown -R claude:claude /workspace/my-project
+# Windows
+copy-in C:\path\to\my-project
 ```
 
-(Adjust `-f` path depending on where you run the command; if you're already in
-`docker/sandbox/` you can drop the `-f ...` flag.)
+Why a helper instead of plain `docker compose cp`? `cp` writes files into the
+volume as **root**, but the sandbox runs as the non-root `claude` user — and
+because the container has `cap_drop: ALL` (no `CAP_CHOWN`), you can't fix the
+ownership *inside* the running container. The helper does the `cp`, then chowns
+the files using a **throwaway root container** (default capabilities), so the
+running sandbox stays fully locked (`cap_drop: ALL`, non-root). Run it once per
+project you copy in.
+
+<details><summary>Manual equivalent (what the helper runs)</summary>
+
+```bash
+docker compose cp ./my-project claude:/workspace/my-project
+docker run --rm -u 0:0 -v sandbox_workspace:/workspace sandbox-claude \
+    chown -R claude:claude /workspace/my-project
+```
+(`sandbox_workspace` / `sandbox-claude` are the default volume/image names when
+the compose project directory is `sandbox`.)
+</details>
 
 **If the project is a Python package (editable install), do it offline once.**
 All dependencies are baked into the image, and the network allow-list blocks
@@ -316,7 +333,48 @@ protects the real repo.
 | Shell into sandbox | `docker compose exec claude bash` |
 | Log in (one-time) | `claude` → "Log in with your Claude account" |
 | Run Claude autonomously | `claude --dangerously-skip-permissions` |
-| Copy project in | `docker compose cp ./proj claude:/workspace/proj` |
+| Copy project in (+fix perms) | `./copy-in.sh ./proj`  (Win: `copy-in .\proj`) |
 | Copy results out | `docker compose cp claude:/workspace/proj ./review-output` |
+| GPU check inside | `docker compose exec claude python -c "import torch;print(torch.cuda.is_available())"` |
 | Stop (keep work + login) | `docker compose down` |
 | Stop & wipe volumes | `docker compose down -v` |
+
+---
+
+## Troubleshooting (issues you may hit, and the fixes)
+
+- **`failed to read dockerfile ... no such file or directory` / `Dockerfile`
+  transfers as `2B`.** You're building from a broken/partial copy of the repo
+  (e.g. a browser ZIP that saved an empty `Dockerfile`). Get the files via `git
+  clone` (not "Download ZIP"/"Save As"), and on Windows make sure the file is
+  literally `Dockerfile` with no hidden `.txt` extension.
+
+- **Proxy container is `unhealthy`; logs show
+  `FATAL: Don't run Squid as root` or `Cannot open '/dev/stdout'`.** Fixed in
+  this repo: squid runs as the non-root `proxy` user and logs to files that the
+  entrypoint tails to stdout. If you edited `squid.conf`, don't set
+  `cache_effective_user root` — Squid 5 refuses to run as root.
+
+- **Claude Code: `Unable to connect to Anthropic services` /
+  `Failed to connect to platform.claude.com: ERR_SOCKET_CLOSED`.** Claude Code
+  pings `platform.claude.com` at startup; it must be in `allowed_domains.txt`
+  (it is, in this repo). If a *different* Anthropic/GitHub host is blocked, add
+  it to `allowed_domains.txt` and `docker compose up -d --build proxy`.
+
+- **`torch.cuda.is_available()` is `False`.** The host can't pass the GPU to
+  Docker. Re-run Section 0's `docker run --gpus all ... nvidia-smi`; install the
+  NVIDIA Container Toolkit (Linux) or enable GPU in Docker Desktop + WSL2
+  (Windows), then `docker compose up -d --build`.
+
+- **Claude can't write files / "permission denied" in `/workspace`.** The copied
+  files are owned by root. Use `./copy-in.sh` (Section 3) which fixes ownership.
+  To repair an existing copy:
+  `docker run --rm -u 0:0 -v sandbox_workspace:/workspace sandbox-claude chown -R claude:claude /workspace`
+
+- **"Do you trust the files in this folder?" prompt.** This is Claude Code's
+  one-time folder-trust gate (separate from `--dangerously-skip-permissions`).
+  Select **Yes**; the choice is saved in the `claude_config` volume.
+
+- **`pip install` / HuggingFace download fails.** Expected — only Anthropic +
+  GitHub are reachable. Python deps are pre-baked into the image; copy any
+  training data into `/workspace` instead of downloading it.
