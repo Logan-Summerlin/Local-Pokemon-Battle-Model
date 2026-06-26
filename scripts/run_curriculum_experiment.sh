@@ -41,7 +41,7 @@ echo ""
 echo ">>> STAGE 1: Foundation (1100-1300 Elo)"
 python Autoresearch/run_experiment.py \
     --name "t2_curr_w5_${NAME_SUFFIX}_s1" \
-    --parent "AR-033" \
+    --parent "AR-012" \
     --tier 2 \
     --budget-epochs 20 \
     --hypothesis "Curriculum w5 Stage 1 with ${NAME_SUFFIX}" \

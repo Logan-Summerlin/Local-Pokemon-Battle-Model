@@ -7,7 +7,7 @@ budget, optionally driven autonomously by Claude Code inside Docker.
 
 > **Hardware target:** GTX 1650 · 4 GB VRAM · ~15 GB RAM · mid-range CPU. The frozen anchor
 > (P8-Lean 50K, 63.21% top-1) was trained on this exact card in ~3.5 h, so the budgets are
-> calibrated. The published champion **AR-041** (67.79% top-1) was trained on an A40; its
+> calibrated. The published champion **AR-020** (67.79% top-1) was trained on an A40; its
 > literal `batch_size=1024` / `bf16` settings **do not transfer** — see below.
 
 ## What's in here
