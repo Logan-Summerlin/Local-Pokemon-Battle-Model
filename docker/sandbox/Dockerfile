@@ -12,7 +12,7 @@ RUN npm install -g @anthropic-ai/claude-code \
 
 # Non-root user that owns the workspace.
 RUN useradd --create-home --shell /bin/bash claude \
-    && mkdir -p /workspace \
+    && mkdir -p /workspace /home/claude/.claude \
     && chown -R claude:claude /workspace /home/claude
 
 # /workspace is backed by a named volume at runtime; it inherits this

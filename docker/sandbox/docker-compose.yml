@@ -44,9 +44,15 @@ services:
       https_proxy: "http://proxy:3128"
       NO_PROXY: "localhost,127.0.0.1,proxy"
       no_proxy: "localhost,127.0.0.1,proxy"
-      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY in .env}"
+      # Keep the egress allow-list minimal: no telemetry / auto-update traffic.
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+      # OPTIONAL — only if you want metered API-key billing instead of your
+      # Pro/Max subscription. Leave unset to use subscription login (Section 4).
+      # Provide it via .env; empty string is passed when unset (ignored).
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
     volumes:
-      - workspace:/workspace          # named volume, NOT a host bind mount
+      - workspace:/workspace                  # named volume, NOT a host bind mount
+      - claude_config:/home/claude/.claude    # persists your Pro/Max login
     working_dir: /workspace
     user: "claude"
     security_opt:
@@ -71,3 +77,4 @@ networks:
 
 volumes:
   workspace:                # docker-managed named volume for /workspace
+  claude_config:            # persists ~/.claude (your subscription login) across rebuilds
