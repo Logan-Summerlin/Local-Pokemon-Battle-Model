@@ -20,7 +20,7 @@ All the files referenced below live in **`docker/sandbox/`**:
 ```
 docker/sandbox/
 ├── docker-compose.yml      # the two services + networks + volumes
-├── Dockerfile              # claude container (Node + Claude Code, non-root)
+├── Dockerfile              # claude container (CUDA + Python + torch + Node + Claude Code, non-root)
 ├── Dockerfile.proxy        # squid container
 ├── squid.conf              # allow-list policy
 ├── allowed_domains.txt     # the 11 permitted hostnames
@@ -28,9 +28,35 @@ docker/sandbox/
 └── .gitignore              # keeps .env and review-output out of git
 ```
 
-You need: a Linux/macOS/WSL2 machine (laptop or VPS) with **Docker** and the
-**`docker compose`** plugin, and a **Claude Pro or Max subscription**. No GPU is
-required for this guide.
+You need: a machine (laptop or VPS) with **Docker** + the **`docker compose`**
+plugin, and a **Claude Pro or Max subscription**.
+
+**GPU training:** the `claude` image ships CUDA 12.1 + PyTorch (cu121,
+Turing/GTX-1650 compatible) and the compose file passes the GPU into the
+container. To use it you need an **NVIDIA GPU** plus the **NVIDIA Container
+Toolkit** on the host (on Windows: Docker Desktop with the **WSL2** backend and a
+current NVIDIA driver). Verify the GPU reaches Docker **before** the (multi-GB)
+build — see Section 0. If you have no NVIDIA GPU, the box still works for code
+editing; training just won't have CUDA.
+
+---
+
+## 0. Confirm the GPU reaches Docker (do this first)
+
+The image build is several GB, so verify GPU passthrough works before building:
+
+```bash
+# Host has an NVIDIA GPU + driver?
+nvidia-smi                 # should list your GPU (e.g. "NVIDIA GeForce GTX 1650")
+
+# Docker can pass that GPU into a container?
+docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
+#   should print the SAME GPU table from inside a container
+```
+
+If the second command fails: install the **NVIDIA Container Toolkit** (Linux) or
+enable GPU support in **Docker Desktop + WSL2** (Windows), then retry. Don't build
+until it lists your GPU.
 
 ---
 
@@ -116,6 +142,27 @@ docker compose -f docker/sandbox/docker-compose.yml exec -u root claude \
 
 (Adjust `-f` path depending on where you run the command; if you're already in
 `docker/sandbox/` you can drop the `-f ...` flag.)
+
+**If the project is a Python package (editable install), do it offline once.**
+All dependencies are baked into the image, and the network allow-list blocks
+PyPI, so install with `--no-deps --no-build-isolation` (no PyPI fetch) as the
+non-root user:
+
+```bash
+docker compose exec claude bash -lc \
+  'cd /workspace/my-project && pip install -e . --no-deps --no-build-isolation --user'
+```
+
+Confirm Python, torch, and the GPU are all visible inside the container:
+
+```bash
+docker compose exec claude python -c \
+  "import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available()); \
+   print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no GPU')"
+#   expect: torch 2.4.1+cu121 cuda True  /  NVIDIA GeForce GTX 1650
+```
+
+If `cuda True` and your GPU name print, training is ready.
 
 ---
 
@@ -209,6 +256,13 @@ re-copy the project and log in again.
   or `/etc`.
 - **No Docker daemon access.** `/var/run/docker.sock` is **not** mounted and the
   Docker CLI is not installed, so Claude can't start sibling containers or escape.
+- **GPU access does not weaken this.** The NVIDIA runtime exposes only the GPU
+  device + driver libraries to the container; it grants no host filesystem, root,
+  or docker-socket access. All the other limits above still apply.
+- **No PyPI / HuggingFace / general downloads.** Only the 11 hosts below are
+  reachable, so `pip install` from PyPI and dataset/model downloads from
+  HuggingFace will fail. All Python deps are pre-baked into the image; any
+  training data must be copied into `/workspace` beforehand.
 - **No host network.** The `claude` container sits on an `internal: true` Docker
   network with no NAT to the internet. It can only talk to the proxy.
 - **No root / no privilege escalation.** Runs as the non-root `claude` user,

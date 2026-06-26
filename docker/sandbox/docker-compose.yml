@@ -49,6 +49,9 @@ services:
       no_proxy: "localhost,127.0.0.1,proxy"
       # Keep the egress allow-list minimal: no telemetry / auto-update traffic.
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+      # Turing/GTX 1650 training knobs (mirror the project's training image).
+      PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True"
+      HF_HOME: "/workspace/.hf_cache"
       # OPTIONAL — only if you want metered API-key billing instead of your
       # Pro/Max subscription. Leave unset to use subscription login (Section 4).
       # Provide it via .env; empty string is passed when unset (ignored).
@@ -63,10 +66,23 @@ services:
     cap_drop:
       - ALL
     read_only: false
-    mem_limit: 4g
-    memswap_limit: 4g                  # = mem_limit -> no swap, hard RAM cap
-    cpus: 2.0
-    pids_limit: 512
+    # GPU passthrough. Uses the NVIDIA container runtime to expose the GPU to the
+    # container WITHOUT host filesystem, root, or docker-socket access. Requires
+    # the NVIDIA Container Toolkit on the host (Docker Desktop + WSL2 on Windows).
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Limits sized for GTX 1650 training (~15 GB RAM box). The data pipeline needs
+    # more than 4 GB RAM, so this is higher than a pure code-editing sandbox.
+    # Lower mem_limit/cpus if your machine has less; keep memswap == mem_limit.
+    mem_limit: 12g
+    memswap_limit: 12g                 # = mem_limit -> no swap, hard RAM cap
+    cpus: 4.0
+    pids_limit: 2048                   # room for DataLoader workers + torch threads
     # Keep the container alive so you can `exec` into it. Claude is launched
     # manually (see the guide), never as the container's main process.
     command: ["sleep", "infinity"]
