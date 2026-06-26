@@ -9,6 +9,9 @@ services:
       dockerfile: Dockerfile.proxy
     container_name: claude-proxy
     restart: unless-stopped
+    # Run squid as the non-root 'proxy' user so it owns the stdout/stderr log
+    # pipes (Squid 5 refuses to run as root). PID 1 == proxy, no privilege drop.
+    user: "proxy"
     networks:
       - egress      # has internet
       - sandbox     # talks to the claude container (internal-only)

@@ -8,8 +8,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY squid.conf /etc/squid/squid.conf
 COPY allowed_domains.txt /etc/squid/allowed_domains.txt
 
+# Squid 5 refuses to run as root, so the container runs as the non-root 'proxy'
+# user (set in docker-compose.yml). Make sure its log dir and files exist and
+# are writable by 'proxy'. (/tmp is already 1777, fine for coredump_dir.)
+RUN mkdir -p /var/log/squid \
+    && touch /var/log/squid/access.log /var/log/squid/cache.log \
+    && chown -R proxy:proxy /var/log/squid
+
 EXPOSE 3128
 
-# -N: no daemon (run in foreground so Docker manages it)
-# -d1: log to stderr so `docker logs` shows allow/deny decisions
-CMD ["squid", "-N", "-d1", "-f", "/etc/squid/squid.conf"]
+# A non-root process can't reopen the root-owned stdout pipe by path, so squid
+# logs to files; we tail access.log to the inherited stdout (fd 1) so
+# `docker compose logs -f proxy` shows every allow/deny. squid's own startup and
+# any FATAL go to stderr via -d1. `exec` makes squid PID 1 for clean signals.
+CMD ["sh", "-c", "tail -n0 -F /var/log/squid/access.log & exec squid -N -d1 -f /etc/squid/squid.conf"]
