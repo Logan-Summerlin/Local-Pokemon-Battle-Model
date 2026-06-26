@@ -1,0 +1,15 @@
+# Squid egress proxy. Allows CONNECT only to the allow-listed domains.
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        squid squid-purge netcat-openbsd ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY squid.conf /etc/squid/squid.conf
+COPY allowed_domains.txt /etc/squid/allowed_domains.txt
+
+EXPOSE 3128
+
+# -N: no daemon (run in foreground so Docker manages it)
+# -d1: log to stderr so `docker logs` shows allow/deny decisions
+CMD ["squid", "-N", "-d1", "-f", "/etc/squid/squid.conf"]
