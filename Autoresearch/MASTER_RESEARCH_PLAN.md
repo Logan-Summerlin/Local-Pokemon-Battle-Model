@@ -15,7 +15,7 @@ constraints this imposes.
 
 ## 0.5 Local Hardware Profile & Budget (binding while the home is the GTX 1650)
 
-The frozen anchor (P8-Lean 50K) was trained on this exact card in ~3.5 h, so these numbers
+The P8-Lean 50K reference run was trained on this exact card in ~3.5 h, so these numbers
 are calibrated, not guessed. The published champion (AR-020) was trained on an A40 and its
 literal settings (`batch_size=1024`, `amp=bf16`) **do not transfer**. Local rules:
 
@@ -102,7 +102,7 @@ sized to measured throughput (§0.5), keeping any single run under ~8 h.
   move acc 71.86%, switch acc 60.51%. Config: 5L/256d/4H (~5.65M params), window=5,
   `split_head` + `action_self_attention` + `move_identity` + `shuffle_moves`, batch 1024,
   LR 4e-4, Elo-curriculum stage 2 (resume from stage 1).
-- **Anchor (frozen reference):** P8-Lean 50K — 63.21% / 89.27%.
+- **Anchor (baseline):** AR-001 (`t2_split_shuffle_identity`) — 55.09% top-1 / 85.56% top-3.
 - **Established lessons (from 23 registered experiments):**
   - Window expansion requires capacity scaling.
   - Candidate/split policy heads were the single biggest architectural win (+3.4pp, +0.8pp).
@@ -210,7 +210,7 @@ model wins games. Build this before synthetic/RL work.
 | C1 | Port the online stack | Copy `src/environment/{showdown_client,battle_env,state,protocol,legality}.py`, `src/bots/`, `src/evaluation/` from Pokemon-Battle-Model (data layer is byte-identical; safe). Adapt `model_bot.py` to this repo's `BattleTransformer`: load with full head flags (post-A1) and add a **rolling window-5 observation buffer** (AR-020 was trained windowed; single-turn inference is a distribution shift). Validate live-obs fidelity vs replay obs — fix the hardcoded `forced_switch=False` and empty opponent base_stats/types in `_state_to_turn_obs`. |
 | C2 | Local Showdown server | Run `setup_showdown.sh` (Node v22 present), smoke-test with the `run_phase1_exit_gate.py` pattern (`node pokemon-showdown start --no-security`), 100 RandomBot-vs-MaxDamageBot gen3ou games. |
 | C3 | Gen 3 OU team pool | Author ~20 packed-format teams across archetypes: TSS, bulky offense, hyper offense, stall, rain (Kyogre-less ADV rain), Baton Pass. Include a **mirror-team mode** (both sides identical) to isolate decision quality from matchup luck. Store in `data/teams/gen3ou/`. |
-| C4 | The Gauntlet | Fixed opponent suite: RandomBot, MaxDamageBot, HeuristicBot, frozen anchor checkpoint, frozen AR-020. ≥400 battles per opponent, alternating sides, shared team pool. Report win rate ± Wilson 95% CI. New `Autoresearch/run_online_eval.py` + a registry-patching utility so win rates are recorded in `experiment_registry.json`; `leaderboard.py` gains a gauntlet column. |
+| C4 | The Gauntlet | Fixed opponent suite: RandomBot, MaxDamageBot, HeuristicBot, frozen AR-001 baseline, frozen AR-020. ≥400 battles per opponent, alternating sides, shared team pool. Report win rate ± Wilson 95% CI. New `Autoresearch/run_online_eval.py` + a registry-patching utility so win rates are recorded in `experiment_registry.json`; `leaderboard.py` gains a gauntlet column. |
 | C5 | Brutal extensions | Archetype-stratified win rates (no archetype below 40%); off-meta legal-set stress tests; temporal-holdout replay set (B-DATA-7); hidden-info calibration suite (score aux predictions vs eventual reveals); the shuffled-moveset tripwire as an automated check. |
 | C6 | External baseline | Series vs Foul Play (open-source search bot). Losing is expected initially; track the trend per major version. |
 | C7 | Ladder protocol | Readiness checklist: 100% legal-action rate over 1K local games, timeout/disconnect handling, choice-lock handling verified. Then: registered account, ≥400 ladder games per major version, GXE/Glicko recorded in the registry. **This is the project's final scoreboard.** |

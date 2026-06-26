@@ -8,8 +8,7 @@ This directory contains the experiment-management layer for the Phase 4 training
 - `eval_harness.py` — checkpoint evaluation helper.
 - `leaderboard.py` — experiment ranking.
 - `experiment_registry.json` — machine-readable run registry.
-- `configs/anchor.yaml` — reference experiment config.
-- `notes/000_anchor.md` — baseline note.
+- `configs/anchor.yaml` — base architecture profile (`--parent anchor` scaffold).
 
 ## Standard loop
 

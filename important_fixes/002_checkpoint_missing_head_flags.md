@@ -52,7 +52,7 @@ the standalone harness. Online evaluation (Phase C) is blocked until this is fix
 
 2. In `Autoresearch/eval_harness.py:load_checkpoint`, pass the same keys through to
    `TransformerConfig`, using `.get(key, <dataclass default>)` so that pre-fix
-   checkpoints (anchor, early AR runs) still load correctly.
+   checkpoints (P8-Lean, early AR runs) still load correctly.
 
 3. **Re-save the champion:** load AR-020's `best_model.pt` weights with the known config
    (from the experiment registry entry) and re-save with the complete config dict.
@@ -66,5 +66,5 @@ the standalone harness. Online evaluation (Phase C) is blocked until this is fix
 ## Verification
 `eval_harness.py` loads the re-saved AR-020 checkpoint without state_dict errors and
 reproduces the registry metrics (67.79% top-1 / 93.42% top-3 within rounding) on the
-test split. Also verify a pre-fix checkpoint (anchor) still loads via the `.get`
+test split. Also verify a pre-fix checkpoint (P8-Lean) still loads via the `.get`
 defaults.
