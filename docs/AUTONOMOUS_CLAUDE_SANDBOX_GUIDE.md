@@ -11,21 +11,26 @@ You get two containers wired together with Docker Compose:
 - **`proxy`** — a Squid egress proxy that is the **only** path to the internet, and
   only to a fixed allow-list (Anthropic + GitHub).
 
+**Authentication:** by default this uses your **Claude Pro/Max subscription** — you
+log in once with your Claude account and no API key is needed. (An API key is an
+optional alternative; see Section 4.)
+
 All the files referenced below live in **`docker/sandbox/`**:
 
 ```
 docker/sandbox/
-├── docker-compose.yml      # the two services + networks + volume
+├── docker-compose.yml      # the two services + networks + volumes
 ├── Dockerfile              # claude container (Node + Claude Code, non-root)
 ├── Dockerfile.proxy        # squid container
 ├── squid.conf              # allow-list policy
-├── allowed_domains.txt     # the 9 permitted hostnames
-├── .env.example            # template for your API key
+├── allowed_domains.txt     # the 10 permitted hostnames
+├── .env.example            # optional: only for API-key billing instead of a subscription
 └── .gitignore              # keeps .env and review-output out of git
 ```
 
 You need: a Linux/macOS/WSL2 machine (laptop or VPS) with **Docker** and the
-**`docker compose`** plugin. No GPU is required for this guide.
+**`docker compose`** plugin, and a **Claude Pro or Max subscription**. No GPU is
+required for this guide.
 
 ---
 
@@ -33,10 +38,6 @@ You need: a Linux/macOS/WSL2 machine (laptop or VPS) with **Docker** and the
 
 ```bash
 cd docker/sandbox
-
-# Put your Anthropic API key in .env (read automatically by compose)
-cp .env.example .env
-$EDITOR .env          # set ANTHROPIC_API_KEY=sk-ant-...
 
 # Build both images
 docker compose build
@@ -46,8 +47,9 @@ docker compose up -d
 docker compose ps     # both should be "running"; proxy should be "healthy"
 ```
 
-If you ever change `allowed_domains.txt` or `squid.conf`, rebuild and restart the
-proxy: `docker compose up -d --build proxy`.
+No `.env` is needed for subscription login — you'll authenticate interactively in
+Section 4. If you ever change `allowed_domains.txt` or `squid.conf`, rebuild and
+restart the proxy: `docker compose up -d --build proxy`.
 
 ---
 
@@ -65,20 +67,24 @@ SH='docker compose exec -T claude'
 $SH curl -s -o /dev/null -w '%{http_code}\n' https://api.anthropic.com/v1/models
 #     expect: 401   (NOT 000 / not a timeout)
 
-# (b) GitHub reachable through the proxy -> expect 200
+# (b) claude.ai reachable through the proxy (needed for subscription login).
+$SH curl -s -o /dev/null -w '%{http_code}\n' https://claude.ai
+#     expect: 200 (or a 3xx redirect) — NOT 000 / not 403
+
+# (c) GitHub reachable through the proxy -> expect 200
 $SH curl -s -o /dev/null -w '%{http_code}\n' https://api.github.com
 #     expect: 200
 
-# (c) A random site is BLOCKED by the proxy -> Squid returns 403
+# (d) A random site is BLOCKED by the proxy -> Squid returns 403
 $SH curl -s -o /dev/null -w '%{http_code}\n' https://example.com
 #     expect: 403   (denied by Squid allow-list)
 
-# (d) Direct internet, BYPASSING the proxy, FAILS -> no route, hangs/refused.
+# (e) Direct internet, BYPASSING the proxy, FAILS -> no route, hangs/refused.
 #     --noproxy '*' ignores the HTTP(S)_PROXY env vars.
 $SH curl -s --noproxy '*' --max-time 8 -o /dev/null -w '%{http_code}\n' https://example.com
 #     expect: 000  (connect timeout / no route — the internal network has no NAT)
 
-# (e) Direct hit to an ALLOWED host without the proxy also fails (proves the
+# (f) Direct hit to an ALLOWED host without the proxy also fails (proves the
 #     allow-list isn't a loophole — there's simply no direct egress at all).
 $SH curl -s --noproxy '*' --max-time 8 -o /dev/null -w '%{http_code}\n' https://api.anthropic.com
 #     expect: 000
@@ -113,13 +119,39 @@ docker compose -f docker/sandbox/docker-compose.yml exec -u root claude \
 
 ---
 
-## 4. Run Claude Code autonomously
+## 4. Log in (one-time, interactive)
+
+The container has no browser, so you do a one-time **manual** OAuth login. Your
+credentials are saved to `/home/claude/.claude`, which is a named volume
+(`claude_config`), so this survives restarts and rebuilds — you only do it once.
 
 ```bash
 # Open a shell in the sandbox as the non-root user
 docker compose exec claude bash
 
-# ...now inside the container:
+# ...now inside the container, start Claude and trigger login:
+claude
+#   - choose "Log in with your Claude account" (the Pro/Max option,
+#     NOT the API-key option)
+#   - Claude prints a URL. Copy it, open it in YOUR host browser, approve,
+#     then paste the resulting code back into the container prompt.
+```
+
+This works because `claude.ai` and `api.anthropic.com` are on the proxy
+allow-list. The login flow never needs the container to open a browser itself.
+
+> **Optional — use an API key instead of a subscription.** If you'd rather pay
+> per-token: `cp .env.example .env`, put your key in it, set
+> `ANTHROPIC_API_KEY=sk-ant-...`, then `docker compose up -d` to recreate the
+> container with the key. Skip the login step above. (Note the API-key warnings
+> in the last section.)
+
+---
+
+## 5. Run Claude Code autonomously
+
+```bash
+# Inside the sandbox shell (docker compose exec claude bash):
 cd /workspace/my-project
 claude --dangerously-skip-permissions
 ```
@@ -136,7 +168,7 @@ docker compose exec claude bash -lc \
 
 ---
 
-## 5. Copy the finished work OUT for review
+## 6. Copy the finished work OUT for review
 
 Never copy blindly back over your real repo. Pull the result into a throwaway
 directory and diff it first.
@@ -157,12 +189,16 @@ real working tree.
 
 ---
 
-## 6. Teardown
+## 7. Teardown
 
 ```bash
-docker compose down                 # stop containers, KEEP the workspace volume
-docker compose down -v              # also DELETE the workspace volume (wipes work)
+docker compose down                 # stop containers, KEEP both named volumes
+docker compose down -v              # also DELETE the volumes: wipes work AND your login
 ```
+
+`down` (without `-v`) keeps both the `workspace` and `claude_config` volumes, so
+your work and your subscription login both persist. `down -v` deletes them — you'd
+re-copy the project and log in again.
 
 ---
 
@@ -178,35 +214,39 @@ docker compose down -v              # also DELETE the workspace volume (wipes wo
 - **No root / no privilege escalation.** Runs as the non-root `claude` user,
   `cap_drop: ALL` removes all Linux capabilities, and `no-new-privileges:true`
   blocks setuid escalation. There is no `sudo` in the image.
-- **No open internet.** The proxy permits **only** these 9 hosts; every other
+- **No open internet.** The proxy permits **only** these 10 hosts; every other
   destination gets a `403` from Squid:
-  `api.anthropic.com`, `github.com`, `api.github.com`, `raw.githubusercontent.com`,
-  `objects.githubusercontent.com`, `codeload.github.com`, `lfs.github.com`,
-  `github-cloud.githubusercontent.com`, `github-cloud.s3.amazonaws.com`.
+  `api.anthropic.com`, `claude.ai`, `github.com`, `api.github.com`,
+  `raw.githubusercontent.com`, `objects.githubusercontent.com`,
+  `codeload.github.com`, `lfs.github.com`, `github-cloud.githubusercontent.com`,
+  `github-cloud.s3.amazonaws.com`. (`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`
+  keeps telemetry/auto-update off so nothing else is needed.)
 - **No resource exhaustion of the host.** `mem_limit: 4g` (+ `memswap_limit` = no
   swap), `cpus: 2.0`, and `pids_limit: 512` cap RAM, CPU, and process/fork count.
-- **No SSH/cloud creds.** None are mounted or present in the image. Only
-  `ANTHROPIC_API_KEY` is injected.
+- **No SSH/cloud creds.** None are mounted or present in the image. The only
+  credential inside is your Claude login (subscription token, or an API key if you
+  chose that option).
 
 ## What this setup does NOT block — read this
 
 This sandbox contains Claude; it does not make Claude harmless.
 
-- ⚠️ **Claude can read the Anthropic API key.** It's an environment variable in the
-  container. Treat it as exposed to whatever runs inside — use a key you can rotate,
-  not a shared/production one.
+- ⚠️ **Claude can read your login credentials.** Your subscription token lives in
+  `/home/claude/.claude` (or the API key in the environment, if you chose that).
+  Anything running inside the container can read it. It's bounded to *this* account.
 - ⚠️ **Claude can modify or delete anything in `/workspace`.** That's the point of
   `--dangerously-skip-permissions`. Anything you copy in is fair game, including
   destructive changes. The named volume is your only copy until you copy results out.
 - ⚠️ **Claude can send your code and file contents to Anthropic.** Everything in the
   workspace it reads can be transmitted to `api.anthropic.com`. Don't put secrets,
   customer data, or anything you wouldn't send to the API into `/workspace`.
-- ⚠️ **Claude can spend API money.** Autonomous loops make many calls. Set a spend
-  limit / budget alert on the API key and watch usage.
+- ⚠️ **Claude can spend your quota / money.** Autonomous loops make many calls —
+  they burn your Pro/Max usage limits (or, in API-key mode, real money; set a spend
+  limit and watch usage).
 - ⚠️ **GitHub is reachable.** If you provide a GitHub token in the workspace, Claude
   can push to and read from repos that token allows. Scope tokens narrowly.
 
-**Always review the diff (Section 5) before copying changes back to your real
+**Always review the diff (Section 6) before copying changes back to your real
 repository.** The container limits blast radius to the volume; your review is what
 protects the real repo.
 
@@ -220,8 +260,9 @@ protects the real repo.
 | Status | `docker compose ps` |
 | Watch egress decisions | `docker compose logs -f proxy` |
 | Shell into sandbox | `docker compose exec claude bash` |
+| Log in (one-time) | `claude` → "Log in with your Claude account" |
 | Run Claude autonomously | `claude --dangerously-skip-permissions` |
 | Copy project in | `docker compose cp ./proj claude:/workspace/proj` |
 | Copy results out | `docker compose cp claude:/workspace/proj ./review-output` |
-| Stop (keep work) | `docker compose down` |
-| Stop & wipe volume | `docker compose down -v` |
+| Stop (keep work + login) | `docker compose down` |
+| Stop & wipe volumes | `docker compose down -v` |
