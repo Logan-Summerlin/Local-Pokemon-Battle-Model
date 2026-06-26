@@ -12,7 +12,7 @@ Code autonomously inside Docker to train the BattleTransformer on a single
 
 ## 0. Why a special profile for this GPU?
 
-The published champion (**AR-041**) was trained on an A40 (44 GB) with `batch_size=1024`
+The published champion (**AR-020**) was trained on an A40 (44 GB) with `batch_size=1024`
 and `amp=bf16`. Neither choice transfers to a GTX 1650:
 
 | Issue | A40 setting | GTX 1650 reality | Local fix |

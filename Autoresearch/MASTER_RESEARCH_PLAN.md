@@ -16,7 +16,7 @@ constraints this imposes.
 ## 0.5 Local Hardware Profile & Budget (binding while the home is the GTX 1650)
 
 The frozen anchor (P8-Lean 50K) was trained on this exact card in ~3.5 h, so these numbers
-are calibrated, not guessed. The published champion (AR-041) was trained on an A40 and its
+are calibrated, not guessed. The published champion (AR-020) was trained on an A40 and its
 literal settings (`batch_size=1024`, `amp=bf16`) **do not transfer**. Local rules:
 
 - **Precision: `amp=fp16`, never `bf16`.** Turing has no bf16 hardware (bf16 autocast falls
@@ -49,8 +49,8 @@ These apply to every experiment in every phase. Violating any of them invalidate
 
 1. **Move-identity conditioning is mandatory.** The model must select actions by what the
    move *is* (e.g., Solar Beam), never by slot position (move2). The mid-program fix
-   (`move_identity_candidates` + `shuffle_moves` augmentation, validated in AR-020/AR-022,
-   part of champion AR-041) is permanent:
+   (`move_identity_candidates` + `shuffle_moves` augmentation, validated in AR-001,
+   part of champion AR-020) is permanent:
    - Every experiment runs with `shuffle_moves=true` and identity-conditioned candidate scoring.
    - Every evaluation includes a **shuffled-moveset generalization check**: re-evaluate with
      move slots randomly permuted. A model whose accuracy collapses under shuffle is
@@ -98,22 +98,22 @@ sized to measured throughput (§0.5), keeping any single run under ~8 h.
 
 ## 2. Current State (June 2026)
 
-- **Champion: AR-041** (`ar-041_t2_curr_w5_action_attn_s2`) — 67.79% top-1, 93.42% top-3,
+- **Champion: AR-020** (`ar-020_t2_curr_w5_action_attn_s2`) — 67.79% top-1, 93.42% top-3,
   move acc 71.86%, switch acc 60.51%. Config: 5L/256d/4H (~5.65M params), window=5,
   `split_head` + `action_self_attention` + `move_identity` + `shuffle_moves`, batch 1024,
   LR 4e-4, Elo-curriculum stage 2 (resume from stage 1).
 - **Anchor (frozen reference):** P8-Lean 50K — 63.21% / 89.27%.
-- **Established lessons (from 44 registered experiments):**
-  - Window expansion requires capacity scaling (AR-004 failure).
+- **Established lessons (from 23 registered experiments):**
+  - Window expansion requires capacity scaling.
   - Candidate/split policy heads were the single biggest architectural win (+3.4pp, +0.8pp).
   - Elo curriculum (stage 1 mid-Elo → stage 2 high-Elo) is worth multiple points.
   - Action self-attention adds relative reasoning (+1.3pp).
   - Batch >1024 has diminishing returns; value head at weight 0.1 *costs* ~0.8–1.6pp top-1
-    (AR-036/037) — it must justify itself via win rate later, not top-1.
+    (AR-015/016) — it must justify itself via win rate later, not top-1.
   - Switch prediction (60.5%) remains ~11pp behind move prediction — biggest offline lever.
 - **Known defects:** aux speed/role/move-family heads receive zero gradient
   (`important_fixes/001`); checkpoints don't persist policy-head config flags
-  (`important_fixes/002`) so `eval_harness.py` cannot reload AR-041; systematic
+  (`important_fixes/002`) so `eval_harness.py` cannot reload AR-020; systematic
   overconfidence in the 0.4–0.8 confidence band.
 - **Data:** 100K rated battle-perspectives processed locally (75,854 unique battles; every
   Metamon gen3ou battle ≥1500 Elo is already local). Remaining Metamon pool (~134K in
@@ -136,7 +136,7 @@ sized to measured throughput (§0.5), keeping any single run under ~8 h.
 
 | ID | Task | Details | Done when |
 |---|---|---|---|
-| A1 | Fix checkpoint head-flag persistence | `important_fixes/002`. Add `use_split_head`, `use_candidate_head`, `move_identity_candidates`, `policy_head_layers`, `action_self_attention`, `switch_weight`, `label_smoothing`, `max_seq_len` to `save_checkpoint` in `scripts/train_phase4.py` and to `load_checkpoint` in `Autoresearch/eval_harness.py`. Re-save champion weights with full config. | `eval_harness.py` loads and reproduces AR-041's registry metrics. |
+| A1 | Fix checkpoint head-flag persistence | `important_fixes/002`. Add `use_split_head`, `use_candidate_head`, `move_identity_candidates`, `policy_head_layers`, `action_self_attention`, `switch_weight`, `label_smoothing`, `max_seq_len` to `save_checkpoint` in `scripts/train_phase4.py` and to `load_checkpoint` in `Autoresearch/eval_harness.py`. Re-save champion weights with full config. | `eval_harness.py` loads and reproduces AR-020's registry metrics. |
 | A2 | Fix aux-head missing targets | `important_fixes/001`. Wire `build_auxiliary_targets()` (`src/data/auxiliary_labels.py`) into the training data path; pass all four target tensors in `forward_step()`. | Validation logs show `aux_speed_accuracy > 0` and `aux_role_accuracy > 0`. |
 | A3 | Establish the noise floor | Re-run the exact champion config with 3 seeds (T2). Record mean ± σ for top-1, switch acc, ECE in the registry notes. | Noise floor documented; future deltas interpreted against it. |
 | A4 | Aux-weight ablation (post-fix) | With working aux heads: `aux_weight` ∈ {0, 0.1, 0.2, 0.4}. Hypothesis: real hidden-info gradient now helps the policy (it never could before A2). | Best aux weight identified; promote if > noise floor. |
@@ -173,9 +173,9 @@ the current champion; stack winners.
 ### B-ARCH: Architecture
 | ID | Experiment | Config delta | Tier | Success criterion |
 |---|---|---|---|---|
-| B-ARCH-1 | Window 7 with scaled capacity | `max_window=7`, 5–6L/288–320d (AR-004's lesson: window needs capacity) | T3 | Top-1 ↑ > noise |
+| B-ARCH-1 | Window 7 with scaled capacity | `max_window=7`, 5–6L/288–320d (window needs capacity) | T3 | Top-1 ↑ > noise |
 | B-ARCH-2 | Window 10 (only if B-ARCH-1 wins) | `max_window=10`, scale model accordingly | T3 | Monotone improvement with window |
-| B-ARCH-3 | 6L retry with depth-aware schedule | 6 layers + longer warmup (≥300), depth-scaled LR, pre-norm init check (AR-043 failed with stage-2 hyperparams) | T2 | Beats 5L at matched budget |
+| B-ARCH-3 | 6L retry with depth-aware schedule | 6 layers + longer warmup (≥300), depth-scaled LR, pre-norm init check (AR-022 failed with stage-2 hyperparams) | T2 | Beats 5L at matched budget |
 | B-ARCH-4 | Richer move-feature embeddings | Concatenate move metadata (base power, accuracy, type, category, priority/effect flags) onto the identity embedding — deepens Invariant 1 | T2 | Top-1 ↑; better off-meta generalization (post-C5) |
 | B-ARCH-5 | Relative turn encoding | Replace sinusoidal turn encoding with ALiBi/rotary-style relative encoding | T2 | Top-1 ↑, esp. late-game accuracy |
 | B-ARCH-6 | Memory tokens | A few learned tokens carried across the window to summarize pre-window history | T3 | Late-game accuracy ↑ |
@@ -207,15 +207,15 @@ model wins games. Build this before synthetic/RL work.
 
 | ID | Task | Details |
 |---|---|---|
-| C1 | Port the online stack | Copy `src/environment/{showdown_client,battle_env,state,protocol,legality}.py`, `src/bots/`, `src/evaluation/` from Pokemon-Battle-Model (data layer is byte-identical; safe). Adapt `model_bot.py` to this repo's `BattleTransformer`: load with full head flags (post-A1) and add a **rolling window-5 observation buffer** (AR-041 was trained windowed; single-turn inference is a distribution shift). Validate live-obs fidelity vs replay obs — fix the hardcoded `forced_switch=False` and empty opponent base_stats/types in `_state_to_turn_obs`. |
+| C1 | Port the online stack | Copy `src/environment/{showdown_client,battle_env,state,protocol,legality}.py`, `src/bots/`, `src/evaluation/` from Pokemon-Battle-Model (data layer is byte-identical; safe). Adapt `model_bot.py` to this repo's `BattleTransformer`: load with full head flags (post-A1) and add a **rolling window-5 observation buffer** (AR-020 was trained windowed; single-turn inference is a distribution shift). Validate live-obs fidelity vs replay obs — fix the hardcoded `forced_switch=False` and empty opponent base_stats/types in `_state_to_turn_obs`. |
 | C2 | Local Showdown server | Run `setup_showdown.sh` (Node v22 present), smoke-test with the `run_phase1_exit_gate.py` pattern (`node pokemon-showdown start --no-security`), 100 RandomBot-vs-MaxDamageBot gen3ou games. |
 | C3 | Gen 3 OU team pool | Author ~20 packed-format teams across archetypes: TSS, bulky offense, hyper offense, stall, rain (Kyogre-less ADV rain), Baton Pass. Include a **mirror-team mode** (both sides identical) to isolate decision quality from matchup luck. Store in `data/teams/gen3ou/`. |
-| C4 | The Gauntlet | Fixed opponent suite: RandomBot, MaxDamageBot, HeuristicBot, frozen anchor checkpoint, frozen AR-019, frozen AR-041. ≥400 battles per opponent, alternating sides, shared team pool. Report win rate ± Wilson 95% CI. New `Autoresearch/run_online_eval.py` + a registry-patching utility so win rates are recorded in `experiment_registry.json`; `leaderboard.py` gains a gauntlet column. |
+| C4 | The Gauntlet | Fixed opponent suite: RandomBot, MaxDamageBot, HeuristicBot, frozen anchor checkpoint, frozen AR-020. ≥400 battles per opponent, alternating sides, shared team pool. Report win rate ± Wilson 95% CI. New `Autoresearch/run_online_eval.py` + a registry-patching utility so win rates are recorded in `experiment_registry.json`; `leaderboard.py` gains a gauntlet column. |
 | C5 | Brutal extensions | Archetype-stratified win rates (no archetype below 40%); off-meta legal-set stress tests; temporal-holdout replay set (B-DATA-7); hidden-info calibration suite (score aux predictions vs eventual reveals); the shuffled-moveset tripwire as an automated check. |
 | C6 | External baseline | Series vs Foul Play (open-source search bot). Losing is expected initially; track the trend per major version. |
 | C7 | Ladder protocol | Readiness checklist: 100% legal-action rate over 1K local games, timeout/disconnect handling, choice-lock handling verified. Then: registered account, ≥400 ladder games per major version, GXE/Glicko recorded in the registry. **This is the project's final scoreboard.** |
 
-**Phase C exit gate:** gauntlet runs end-to-end from a registry entry; AR-041 gauntlet
+**Phase C exit gate:** gauntlet runs end-to-end from a registry entry; AR-020 gauntlet
 baseline recorded; ladder checklist items all green (ladder play itself can start at the
 first major version after D or E).
 
@@ -317,7 +317,7 @@ deprioritize RL, reinvest in data/features.
 
 ## 11. Registry Conventions
 
-- Experiment IDs continue sequentially (AR-045, AR-046, …) with descriptive slugs; tag the
+- Experiment IDs continue sequentially (AR-024, AR-025, …) with descriptive slugs; tag the
   plan ID (e.g., `b-sw-1`) in the slug and the hypothesis field.
 - Every entry: hypothesis, parent, single variable changed, tier, seeds, decision
   (KILL/RETRY/PROMOTE) with one-sentence justification.

@@ -21,7 +21,7 @@ Any loader that reconstructs the model from `ckpt["config"]` — including
 `ModelBot` loader — builds the default pooled-MLP policy head and fails with a
 `state_dict` mismatch (or worse, silently mis-evaluates if `strict=False` is ever used).
 
-**Consequence:** the champion AR-041 checkpoint (split head + action self-attention +
+**Consequence:** the champion AR-020 checkpoint (split head + action self-attention +
 move-identity candidates) cannot be loaded outside its own training run. All registry
 metrics for recent experiments come from `train_phase4.py`'s in-run test evaluation, not
 the standalone harness. Online evaluation (Phase C) is blocked until this is fixed.
@@ -54,7 +54,7 @@ the standalone harness. Online evaluation (Phase C) is blocked until this is fix
    `TransformerConfig`, using `.get(key, <dataclass default>)` so that pre-fix
    checkpoints (anchor, early AR runs) still load correctly.
 
-3. **Re-save the champion:** load AR-041's `best_model.pt` weights with the known config
+3. **Re-save the champion:** load AR-020's `best_model.pt` weights with the known config
    (from the experiment registry entry) and re-save with the complete config dict.
    Keep the original file until the re-saved copy is verified.
 
@@ -64,7 +64,7 @@ the standalone harness. Online evaluation (Phase C) is blocked until this is fix
 - Any future loader (e.g., `src/bots/model_bot.py` once ported) must read these flags.
 
 ## Verification
-`eval_harness.py` loads the re-saved AR-041 checkpoint without state_dict errors and
+`eval_harness.py` loads the re-saved AR-020 checkpoint without state_dict errors and
 reproduces the registry metrics (67.79% top-1 / 93.42% top-3 within rounding) on the
 test split. Also verify a pre-fix checkpoint (anchor) still loads via the `.get`
 defaults.

@@ -158,7 +158,7 @@ PROFILE_OVERRIDES: dict[str, dict[str, Any]] = {
     "compile": {"torch_compile": True},
     # Champion-class recipe retuned to fit a single NVIDIA GTX 1650 (4 GB, Turing)
     # with ~15 GB system RAM. Same 5L/256d split-head + move-identity architecture as
-    # AR-041 (~4.6M params), but: micro-batch 256 x grad_accum 4 == effective batch
+    # AR-020 (~4.6M params), but: micro-batch 256 x grad_accum 4 == effective batch
     # 1024 (matches the A40 champion's optimizer batch). The model is small enough that
     # activations dominate VRAM (~2.5-3.8 MB/example at window 5); batch 256 is ~1.5 GB,
     # leaving comfortable headroom under 4 GB while keeping the GPU well utilised. Drop

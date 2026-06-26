@@ -12,11 +12,11 @@ bf16 — Turing has no bf16 HW), micro-batch 256 × `grad_accum` 4, and an expli
 `--budget-minutes`; no run exceeds ~8 h.** The `gtx1650`/`local` profile in
 `run_experiment.py`, `--mode local` in `train_phase4.py`, and
 `run_curriculum_experiment_local.sh` encode this. Full details: MASTER_RESEARCH_PLAN.md §0.5.
-The published champion (AR-041) was trained on an A40; its literal `batch_size=1024`/`bf16`
+The published champion (AR-020) was trained on an A40; its literal `batch_size=1024`/`bf16`
 settings do not transfer to the 1650.
 
 ## Current Champion
-- **AR-041** (`ar-041_t2_curr_w5_action_attn_s2`) — 67.79% Top-1, 93.42% Top-3, switch acc 60.51%
+- **AR-020** (`ar-020_t2_curr_w5_action_attn_s2`) — 67.79% Top-1, 93.42% Top-3, switch acc 60.51%
   - 5L/256d/4H, window=5, split_head + action_self_attention + move_identity + shuffle_moves,
     Elo-curriculum stage 2
 - **Anchor (frozen reference)**: P8-Lean 50K — 63.21% Top-1, 89.27% Top-3
@@ -34,7 +34,7 @@ settings do not transfer to the 1650.
 4. **Registry-first** — hypothesis, parent, tier, one variable, KILL/RETRY/PROMOTE.
 
 ## Known Bugs (both HIGH — fix in Phase A before anything else)
-- Checkpoints don't persist policy-head flags → eval_harness cannot load AR-041:
+- Checkpoints don't persist policy-head flags → eval_harness cannot load AR-020:
   `important_fixes/002_checkpoint_missing_head_flags.md`
 - Auxiliary speed/role/move-family heads get zero gradient (0% accuracy):
   `important_fixes/001_auxiliary_head_missing_targets.md`
