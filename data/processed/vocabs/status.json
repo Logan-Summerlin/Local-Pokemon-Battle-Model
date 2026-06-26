@@ -1,0 +1,16 @@
+{
+  "name": "status",
+  "tokens": {
+    "": 0,
+    "unknown": 1,
+    "nostatus": 2,
+    "slp": 3,
+    "fnt": 4,
+    "par": 5,
+    "tox": 6,
+    "frz": 7,
+    "brn": 8,
+    "psn": 9
+  },
+  "frozen": true
+}

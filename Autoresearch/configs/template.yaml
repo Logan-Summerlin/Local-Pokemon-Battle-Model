@@ -1,0 +1,60 @@
+# Experiment Config Template
+# Copy this file and modify for new experiments.
+#
+# Only change values you're experimenting with.
+# Unchanged values inherit from the anchor (AR-000) via run_experiment.py.
+#
+# Usage example:
+#   python Autoresearch/run_experiment.py \
+#     --name my_experiment \
+#     --parent anchor \
+#     --tier 1 \
+#     --config-override max_window=5
+
+# Architecture
+num_layers: 3           # 2-8 range
+hidden_dim: 224         # 128-512 range (must be divisible by num_heads)
+num_heads: 4            # must divide hidden_dim
+ffn_multiplier: 3       # 2-4 range
+dropout: 0.1            # 0.0-0.3 range
+
+# Embeddings
+species_embedding_dim: 48
+move_embedding_dim: 24
+item_embedding_dim: 16
+ability_embedding_dim: 16
+type_embedding_dim: 12
+
+# Context Window
+max_window: 2           # 2-8 range
+
+# Training
+batch_size: 64          # Scale up on A40: 128, 256, 512, 1024
+epochs: 30
+lr: 0.0001
+weight_decay: 0.01
+warmup_steps: 300
+grad_accum: 1           # Gradient accumulation steps
+patience: 7             # Early stopping patience
+
+# Data
+num_battles: 50000      # More than 100000+ available
+seed: 42
+data_dir: data/processed
+
+# Loss / Heads
+aux_weight: 0.2         # Auxiliary loss weight
+no_value_head: true     # Set false to enable value head
+value_weight: 0.1       # Value head loss weight (if enabled)
+
+# Efficiency
+prune_dead_features: true
+amp: auto               # off, fp16, bf16, auto
+torch_compile: false    # Enable torch.compile() for potential speedup
+
+# DataLoader
+num_workers: null       # Auto-detect if null
+prefetch_factor: 4
+persistent_workers: null
+pin_memory: null
+non_blocking_transfer: null

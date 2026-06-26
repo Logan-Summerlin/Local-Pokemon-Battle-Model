@@ -1,0 +1,8 @@
+{
+  "name": "terrain",
+  "tokens": {
+    "": 0,
+    "unknown": 1
+  },
+  "frozen": false
+}

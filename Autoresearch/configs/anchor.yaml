@@ -1,0 +1,46 @@
+# Frozen Anchor Configuration: P8-Lean 50K (Seed 42)
+# DO NOT MODIFY — this is the baseline for all AutoResearch experiments.
+
+# Model architecture
+num_layers: 3
+hidden_dim: 224
+num_heads: 4
+ffn_multiplier: 3
+dropout: 0.1
+
+# Embeddings (compressed for P8-Lean)
+species_embedding_dim: 48
+move_embedding_dim: 24
+item_embedding_dim: 16
+ability_embedding_dim: 16
+type_embedding_dim: 12
+
+# Context window
+max_window: 2
+
+# Heads
+auxiliary_loss_weight: 0.2
+use_value_head: false
+prune_dead_features: true
+
+# Training
+batch_size: 64
+epochs: 30
+learning_rate: 1.0e-4
+weight_decay: 0.01
+warmup_steps: 300
+gradient_accumulation_steps: 1
+
+# Data
+num_battles: 50000
+seed: 42
+
+# Anchor results (P8-Lean 50K Seed 42 on GTX 1650)
+# test_top1_accuracy: 0.6321
+# test_top3_accuracy: 0.8927
+# test_policy_loss: 1.0148
+# move_accuracy: ~0.72-0.75
+# switch_accuracy: ~0.37-0.48
+# parameters: ~1,720,000
+# training_time_min: 212
+# throughput_examples_sec: ~1520

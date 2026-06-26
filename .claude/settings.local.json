@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"import json,sys; r=json.load\\(sys.stdin\\); e=[x for x in r if x[''''experiment_id'''']==''''AR-001''''][0]; e[''''decision'''']=''''RETRY''''; e[''''notes_summary'''']=''''Timed out at epoch 6/10 with val_acc=0.498. Data loading took 12min of 30min budget. Need Tier 2.''''; json.dump\\(r, open\\(''''Autoresearch/experiment_registry.json'''',''''w''''\\), indent=2\\)\")"
+    ]
+  }
+}

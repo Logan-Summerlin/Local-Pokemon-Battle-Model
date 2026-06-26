@@ -1,0 +1,15 @@
+# Keep the Docker build context tiny — the repo is bind-mounted at runtime, so the
+# image never needs the heavy data/checkpoint trees or git history.
+.git
+data
+checkpoints
+experiments
+**/__pycache__
+*.pyc
+.venv
+venv
+wandb
+mlruns
+.hf_cache
+*.tar.gz
+*.json.lz4
