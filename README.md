@@ -5,8 +5,8 @@ battles, ported from Pokemon-Battle-AutoResearch and **retuned to train on a sin
 NVIDIA GeForce GTX 1650 (4 GB)** — both pre-training and post-training — within an ~8-hour
 budget, optionally driven autonomously by Claude Code inside Docker.
 
-> **Hardware target:** GTX 1650 · 4 GB VRAM · ~15 GB RAM · mid-range CPU. The frozen anchor
-> (P8-Lean 50K, 63.21% top-1) was trained on this exact card in ~3.5 h, so the budgets are
+> **Hardware target:** GTX 1650 · 4 GB VRAM · ~15 GB RAM · mid-range CPU. The P8-Lean 50K reference run
+> (63.21% top-1) was trained on this exact card in ~3.5 h, so the budgets are
 > calibrated. The published champion **AR-020** (67.79% top-1) was trained on an A40; its
 > literal `batch_size=1024` / `bf16` settings **do not transfer** — see below.
 
@@ -14,7 +14,7 @@ budget, optionally driven autonomously by Claude Code inside Docker.
 
 The full AutoResearch project: the `BattleTransformer` model, the replay→tensor data
 pipeline, the experiment harness/registry, the governing `MASTER_RESEARCH_PLAN.md`, the
-~100K committed processed battle tensors, and the frozen anchor checkpoint.
+~100K committed processed battle tensors, and the committed P8-Lean reference checkpoint.
 
 ## GTX 1650 optimizations (the port's point)
 
@@ -73,7 +73,7 @@ python scripts/train_phase4.py --mode local \
 | `Autoresearch/` | Experiment harness, registry, **`MASTER_RESEARCH_PLAN.md`** |
 | `docker/` | Dockerfile, compose, entrypoint for local autonomous training |
 | `docs/` | `LOCAL_DOCKER_AUTORESEARCH_SETUP_GUIDE.md` (local) and the RunPod guide (cloud) |
-| `data/`, `checkpoints/` | Committed processed battles, vocabs, anchor checkpoint |
+| `data/`, `checkpoints/` | Committed processed battles, vocabs, P8-Lean checkpoint |
 | `CLAUDE.md` | Autonomous agent operating manual (local) |
 
 ## Governance

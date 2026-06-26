@@ -2,7 +2,7 @@
 # Copy this file and modify for new experiments.
 #
 # Only change values you're experimenting with.
-# Unchanged values inherit from the anchor (AR-000) via run_experiment.py.
+# Unchanged values inherit from the `anchor` base profile via run_experiment.py.
 #
 # Usage example:
 #   python Autoresearch/run_experiment.py \

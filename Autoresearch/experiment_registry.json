@@ -1,59 +1,9 @@
 [
   {
-    "experiment_id": "AR-000",
-    "parent_id": null,
-    "name": "anchor",
-    "description": "P8-Lean 50K baseline checkpoint (Seed 42, GTX 1650). Frozen anchor for all comparisons.",
-    "tier": 3,
-    "dataset_version": "gen3ou_50k_v1",
-    "config_changes": {},
-    "full_config": {
-      "num_layers": 3,
-      "hidden_dim": 224,
-      "num_heads": 4,
-      "ffn_multiplier": 3,
-      "dropout": 0.1,
-      "species_embedding_dim": 48,
-      "move_embedding_dim": 24,
-      "item_embedding_dim": 16,
-      "ability_embedding_dim": 16,
-      "type_embedding_dim": 12,
-      "max_window": 2,
-      "aux_weight": 0.2,
-      "use_value_head": false,
-      "prune_dead_features": true,
-      "batch_size": 64,
-      "epochs": 30,
-      "lr": 0.0001,
-      "weight_decay": 0.01,
-      "warmup_steps": 300,
-      "grad_accum": 1,
-      "num_battles": 50000,
-      "seed": 42
-    },
-    "metrics": {
-      "test_top1_accuracy": 0.6321,
-      "test_top3_accuracy": 0.8927,
-      "test_loss": 1.0148,
-      "test_nll": 1.0148,
-      "test_ece": null,
-      "move_accuracy": null,
-      "switch_accuracy": null,
-      "parameter_count": 1720000,
-      "wall_time_min": 212,
-      "throughput_examples_sec": 1520
-    },
-    "decision": "PROMOTE",
-    "notes": "Frozen anchor. Trained on GTX 1650 with batch_size=64. Known issues: aux speed/role heads at 0% accuracy, switch prediction 37-48% vs move prediction 72-75%.",
-    "timestamp": "2026-03-22T00:00:00+00:00",
-    "seed": 42,
-    "checkpoint_path": "checkpoints/phase4_p8_lean_50k/seed_42/best_model.pt"
-  },
-  {
     "experiment_id": "AR-001",
-    "parent_id": "AR-000",
+    "parent_id": null,
     "name": "t2_split_shuffle_identity",
-    "description": "Split head + move shuffle augmentation + move-identity candidates",
+    "description": "First move-identity experiment (split head + shuffle_moves + move-identity candidates). Frozen baseline anchor for all comparisons; root of the registry.",
     "hypothesis": "Move shuffle prevents slot memorization while move-identity candidates give the model a way to identify actual moves. Together they force the model to learn 'use Earthquake' instead of 'click slot 1'.",
     "expected_impact": "Should learn slower initially but generalize better. Key test: does the model's move probability follow the move identity when slots are swapped?",
     "phase": "AR-unassigned",
@@ -183,8 +133,8 @@
       "max_minutes": 120
     },
     "lineage": {
-      "parent_name": "anchor",
-      "base_config_source": "AR-000"
+      "parent_name": null,
+      "base_config_source": "anchor"
     },
     "start_timestamp": "2026-03-30T17:08:10.095820+00:00",
     "return_code": 0,

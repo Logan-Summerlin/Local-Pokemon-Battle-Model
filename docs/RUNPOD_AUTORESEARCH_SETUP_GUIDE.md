@@ -119,15 +119,15 @@ Then paste this prompt:
 
 ```
 Read CLAUDE.md. This is a fully autonomous research session.
-Set up the experiment branch, verify the anchor, and begin the experiment loop.
+Set up the experiment branch, verify the setup, and begin the experiment loop.
 Run experiments continuously. Do not stop or ask for permission.
-Target: beat the 63.21% Top-1 anchor accuracy.
+Target: beat the AR-001 baseline (55.09% Top-1).
 Go.
 ```
 
 Claude Code will:
 1. Read the project configuration
-2. Verify the anchor checkpoint
+2. Verify the committed checkpoint
 3. Begin running experiments from the priority queue
 4. Use 5-minute sleep/wake cycles during training runs
 5. Commit progress, revert failures, advance the branch on successes

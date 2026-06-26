@@ -19,8 +19,8 @@ settings do not transfer to the 1650.
 - **AR-020** (`ar-020_t2_curr_w5_action_attn_s2`) — 67.79% Top-1, 93.42% Top-3, switch acc 60.51%
   - 5L/256d/4H, window=5, split_head + action_self_attention + move_identity + shuffle_moves,
     Elo-curriculum stage 2
-- **Anchor (frozen reference)**: P8-Lean 50K — 63.21% Top-1, 89.27% Top-3
-  - `checkpoints/phase4_p8_lean_50k/seed_42/best_model.pt`
+- **Anchor (baseline)**: AR-001 (`t2_split_shuffle_identity`) — 55.09% Top-1, 85.56% Top-3
+  - first move-identity experiment; root of the registry (no parent)
 
 ## Non-Negotiable Invariants (full text in MASTER_RESEARCH_PLAN.md §0)
 1. **Move-identity conditioning + `shuffle_moves` always on.** The model chooses moves by

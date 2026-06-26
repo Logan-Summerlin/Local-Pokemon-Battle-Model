@@ -5,7 +5,7 @@ Code autonomously inside Docker to train the BattleTransformer on a single
 **NVIDIA GeForce GTX 1650 (4 GB)**.
 
 > Target machine (the box this was tuned for): **GTX 1650, 4 GB VRAM · ~15 GB system
-> RAM · mid-range CPU.** The frozen anchor (P8-Lean 50K) was in fact trained on this
+> RAM · mid-range CPU.** The P8-Lean 50K reference run was in fact trained on this
 > exact card in ~3.5 h, so the budgets below are calibrated, not guessed.
 
 ---
@@ -66,7 +66,7 @@ git clone https://github.com/logan-summerlin/local-pokemon-battle-model.git
 cd local-pokemon-battle-model
 ```
 
-The ~100K processed battle tensors (`data/processed/battles/`), vocabs, and the anchor
+The ~100K processed battle tensors (`data/processed/battles/`), vocabs, and the P8-Lean
 checkpoint are committed, so you can train immediately with **no download**.
 
 ---
@@ -174,7 +174,7 @@ print('train examples:', r['data_stats']['train_examples'])
 PY
 ```
 
-Budgeting rule of thumb (anchor baseline: ~795 ex/s at window 2 / 1.7 M params / bf16):
+Budgeting rule of thumb (P8-Lean baseline: ~795 ex/s at window 2 / 1.7 M params / bf16):
 - **time ≈ train_examples × epochs ÷ examples_per_sec.**
 - If a planned run exceeds your budget, dial down in this order: `num_battles` →
   `epochs` → `max_window` (5→3) → `hidden_dim`/`num_layers`. Each is a single `--config-override`.
@@ -195,7 +195,7 @@ Then paste:
 ```
 Read CLAUDE.md. This is an autonomous local research session on a GTX 1650 (4 GB).
 Follow Autoresearch/MASTER_RESEARCH_PLAN.md — start at Phase A. Use the `gtx1650`
-profile and an explicit --budget-minutes for every run. Verify the anchor, then work
+profile and an explicit --budget-minutes for every run. Verify the setup, then work
 the priority queue. Commit after each experiment and push to the working branch.
 Do not exceed ~8 h of training per run. Go.
 ```

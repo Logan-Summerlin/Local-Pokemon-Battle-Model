@@ -54,7 +54,7 @@ This card is **Turing (compute 7.5)**. Consequences:
 
 ### Calibrate the time budget before committing to a long run
 Throughput is recorded in every report (`examples_per_sec`). Estimate:
-`wall ≈ train_examples × epochs ÷ examples_per_sec`. Anchor reference: ~795 ex/s at
+`wall ≈ train_examples × epochs ÷ examples_per_sec`. Reference throughput: ~795 ex/s at
 window 2 / 1.7 M params. The champion-class recipe (window 5, 5L/256d, split head) is
 several × heavier — so reduce `num_battles`/`epochs` to fit. If unsure, run `--epochs 1`
 first, read the report, then size the real run.
