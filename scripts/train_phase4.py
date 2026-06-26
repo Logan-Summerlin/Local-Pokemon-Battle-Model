@@ -945,20 +945,23 @@ def main() -> None:
         )
     elif args.mode == "local":
         # Tuned for a single NVIDIA GTX 1650 (4 GB, Turing) + ~15 GB system RAM.
-        #   * 5L/256d champion-class encoder, history window 5.
-        #   * batch_size 64 x grad_accum 16 == effective batch 1024 (matches the
-        #     A40 champion's optimizer batch) while keeping peak VRAM well under 4 GB.
+        #   * 5L/256d champion-class encoder (~4.6M params), history window 5.
+        #   * batch_size 256 x grad_accum 4 == effective batch 1024 (matches the A40
+        #     champion's optimizer batch). The model is small, so activations dominate
+        #     VRAM (~2.5-3.8 MB/example at window 5); batch 256 is ~1.5 GB, leaving room
+        #     under 4 GB. If a display is attached and VRAM is tight, drop to
+        #     batch_size 128 / grad_accum 8; headless, batch 512 / grad_accum 2 is fine.
         #   * amp=fp16: Turing has 2x-rate packed FP16 on its CUDA cores but NO bf16
         #     hardware, so fp16 is the fast/light precision here.
-        #   * 25K battles keeps the in-RAM dataset ~2-3 GB and the run inside ~8 h.
+        #   * 25K battles keeps the in-RAM dataset ~0.6 GB and the run inside ~8 h.
         # Architecture *flags* (--split-head --move-identity --shuffle-moves
         # --no-value-head) are intentionally NOT forced here — pass them explicitly,
         # or use the `gtx1650` profile in Autoresearch/run_experiment.py / the local
         # curriculum script for the full champion recipe.
         defaults = dict(
             num_battles=25_000, hidden_dim=256, num_layers=5, num_heads=4,
-            batch_size=64, epochs=12, warmup_steps=200,
-            grad_accum=16, max_window=5, amp="fp16",
+            batch_size=256, epochs=12, warmup_steps=200,
+            grad_accum=4, max_window=5, amp="fp16",
             checkpoint_dir="checkpoints/phase4_local",
             report_path="checkpoints/phase4_local/training_report.json",
         )

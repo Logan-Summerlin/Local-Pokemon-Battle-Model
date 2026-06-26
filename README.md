@@ -20,7 +20,7 @@ pipeline, the experiment harness/registry, the governing `MASTER_RESEARCH_PLAN.m
 
 | Lever | A40 champion | Local (this repo) | Where |
 |---|---|---|---|
-| Optimizer batch | `batch_size=1024` | micro-batch **64 × grad_accum 16** = eff. 1024 (fits 4 GB) | `gtx1650` profile / `--mode local` |
+| Optimizer batch | `batch_size=1024` | micro-batch **256 × grad_accum 4** = eff. 1024 (~1.5 GB; model is activation-bound) | `gtx1650` profile / `--mode local` |
 | Precision | `bf16` | **`fp16`** (Turing: 2× packed FP16, no bf16 HW) | profile / `train_phase4.py` |
 | Allocator | n/a | `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` | `train_phase4.py` / Docker |
 | Data scale | 50–100K battles | 25K (in-RAM dataset ≈ 2–3 GB) | profile |

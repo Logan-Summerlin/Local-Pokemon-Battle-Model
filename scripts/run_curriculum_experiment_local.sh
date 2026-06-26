@@ -3,7 +3,8 @@
 #
 # This mirrors scripts/run_curriculum_experiment.sh (the A40 recipe) but retunes
 # every memory/precision knob for a single NVIDIA GTX 1650:
-#   * batch_size 64 x grad_accum 16  == effective optimizer batch 1024 (no OOM)
+#   * batch_size 256 x grad_accum 4  == effective optimizer batch 1024 (~1.5 GB VRAM;
+#     drop to 128/8 if a display is attached, or 512/2 headless)
 #   * amp=fp16  (Turing has 2x packed FP16 on its CUDA cores but NO bf16 hardware,
 #                so bf16 autocast is a pessimisation here — fp16 is faster + lighter)
 #   * reduced epochs and an explicit, generous --budget-minutes per stage, because
@@ -32,8 +33,8 @@ BASE_OVERRIDES=(
     hidden_dim=256
     num_heads=4
     ffn_multiplier=3
-    batch_size=64
-    grad_accum=16          # effective batch 1024
+    batch_size=256
+    grad_accum=4           # effective batch 1024
     lr=4e-4
     warmup_steps=300
     patience=10

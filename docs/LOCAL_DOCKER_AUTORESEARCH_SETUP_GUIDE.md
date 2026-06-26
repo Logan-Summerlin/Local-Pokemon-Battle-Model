@@ -17,7 +17,7 @@ and `amp=bf16`. Neither choice transfers to a GTX 1650:
 
 | Issue | A40 setting | GTX 1650 reality | Local fix |
 |---|---|---|---|
-| **VRAM** | batch 1024 fits in 44 GB | 4 GB OOMs almost immediately | micro-batch **64 × grad_accum 16 = effective 1024** |
+| **VRAM** | batch 1024 fits in 44 GB | 4 GB is tight — a literal 1024 is borderline (~3–4 GB) and risks OOM with a display/fragmentation | micro-batch **256 × grad_accum 4 = effective 1024** (~1.5 GB, big headroom) |
 | **Precision** | `bf16` (Ampere has bf16 cores) | Turing has **no bf16 hardware**; bf16 autocast upcasts to fp32 → no speedup | `amp=fp16` — Turing runs **2× packed FP16** on its CUDA cores (faster *and* halves activation memory) |
 | **Throughput** | ~thousands ex/s | ~10–40× slower | reduce data (25K battles) + epochs to stay under ~8 h |
 | **Fragmentation** | irrelevant | small heap fragments → spurious OOM | `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` |
@@ -227,7 +227,7 @@ git -C . log --oneline -20                          # experiment commits
 
 | Symptom | Fix |
 |---|---|
-| `CUDA out of memory` | Lower `batch_size` (64→48→32); grad_accum keeps the effective batch. Confirm `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`. Drop `max_window` 5→3. |
+| `CUDA out of memory` | Lower `batch_size` (256→128→64) and raise `grad_accum` to keep the effective batch constant. Confirm `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`. Drop `max_window` 5→3. The model is small (~4.6M params) so activations set the ceiling (~2.5–3.8 MB/example at window 5 → roughly 600–1200 max batch depending on display/headless); bisect from 512 if unsure. |
 | Training pinned to CPU | `cuda_available=False` → host driver/toolkit issue; re-run the §1 GPU smoke test. |
 | Very slow epochs | Ensure `amp=fp16` (not bf16/off); raise `num_workers` toward your physical core count; confirm you are on Linux/WSL (not native-Windows spawn). |
 | Desktop freezes / host OOM | The 4 GB card shares nothing with RAM, but the in-RAM dataset + workers can; lower `num_battles` and keep compose `mem_limit`/`shm_size`. |

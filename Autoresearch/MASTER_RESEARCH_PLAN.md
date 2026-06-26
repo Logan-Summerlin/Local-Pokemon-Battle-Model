@@ -22,10 +22,13 @@ literal settings (`batch_size=1024`, `amp=bf16`) **do not transfer**. Local rule
 - **Precision: `amp=fp16`, never `bf16`.** Turing has no bf16 hardware (bf16 autocast falls
   back to fp32 → zero speedup) but runs 2× packed FP16 on its CUDA cores. fp16 is both
   faster and halves activation memory.
-- **Effective batch via accumulation.** Use micro-batch 64 × `grad_accum` 16 = effective
-  1024 (the champion optimizer batch) instead of a literal 1024 (which OOMs 4 GB). On OOM,
-  shrink `batch_size` 64→48→32 keeping `batch_size × grad_accum` constant, then drop
-  `max_window` 5→3.
+- **Effective batch via accumulation.** Use micro-batch 256 × `grad_accum` 4 = effective
+  1024 (the champion optimizer batch). The model is small (~4.6M params), so activations
+  set the VRAM ceiling (~2.5–3.8 MB/example at window 5): batch 256 is ~1.5 GB, and the
+  hard max is ~600–1200 depending on whether a display is attached. A literal 1024 is
+  borderline (~3–4 GB) — avoid it for the safety margin, not because it always OOMs. On
+  OOM, shrink `batch_size` 256→128→64 keeping `batch_size × grad_accum` constant, then
+  drop `max_window` 5→3.
 - **Allocator:** `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` (set by the training
   script and Docker image) to avoid fragmentation OOMs.
 - **Data/RAM:** keep the in-RAM windowed dataset to ~25K battles (~2–3 GB) so workers +

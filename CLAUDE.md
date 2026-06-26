@@ -33,9 +33,12 @@ This card is **Turing (compute 7.5)**. Consequences:
 
 - **Use `amp=fp16`, never `bf16`.** Turing has no bf16 hardware (bf16 autocast → fp32, no
   speedup) but *does* run 2× packed FP16. fp16 is faster and halves activation memory.
-- **Never set `batch_size` near the A40's 1024.** Use **micro-batch 64 × `grad_accum` 16**
-  (effective 1024). If you see `CUDA out of memory`, drop `batch_size` to 48→32 (keep
-  grad_accum × batch_size constant) and/or `max_window` 5→3.
+- **Avoid a literal `batch_size=1024`.** Use **micro-batch 256 × `grad_accum` 4**
+  (effective 1024). The model is small (~4.6M params) so activations set the VRAM ceiling
+  (~2.5–3.8 MB/example at window 5 → hard max ~600–1200 batch); 256 is ~1.5 GB and safe. A
+  literal 1024 is borderline (~3–4 GB) — skip it for the margin. On `CUDA out of memory`,
+  drop `batch_size` 256→128→64 (keep grad_accum × batch_size constant) and/or `max_window`
+  5→3.
 - `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` is set by the image and the training
   script — do not unset it.
 - **All of the above is pre-packaged in the `gtx1650` profile.** Prefer it:

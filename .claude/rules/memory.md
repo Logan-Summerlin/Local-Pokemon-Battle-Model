@@ -8,7 +8,7 @@ noise floor (A3) before starting new experiments.
 ## Local Compute (current home)
 Training runs on a single **NVIDIA GTX 1650 (4 GB, Turing) · ~15 GB RAM · mid-range CPU**,
 usually in Docker (`docs/LOCAL_DOCKER_AUTORESEARCH_SETUP_GUIDE.md`). **Use `amp=fp16` (NOT
-bf16 — Turing has no bf16 HW), micro-batch 64 × `grad_accum` 16, and an explicit
+bf16 — Turing has no bf16 HW), micro-batch 256 × `grad_accum` 4, and an explicit
 `--budget-minutes`; no run exceeds ~8 h.** The `gtx1650`/`local` profile in
 `run_experiment.py`, `--mode local` in `train_phase4.py`, and
 `run_curriculum_experiment_local.sh` encode this. Full details: MASTER_RESEARCH_PLAN.md §0.5.

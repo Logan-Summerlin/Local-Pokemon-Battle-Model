@@ -158,17 +158,21 @@ PROFILE_OVERRIDES: dict[str, dict[str, Any]] = {
     "compile": {"torch_compile": True},
     # Champion-class recipe retuned to fit a single NVIDIA GTX 1650 (4 GB, Turing)
     # with ~15 GB system RAM. Same 5L/256d split-head + move-identity architecture as
-    # AR-041, but: micro-batch 64 x grad_accum 16 == effective batch 1024 (no VRAM
-    # blowup), fp16 instead of bf16 (Turing has 2x packed FP16 but no bf16 hardware),
-    # and 25K battles so a run finishes inside the local ~8 h budget. Pair with an
-    # explicit, generous --budget-minutes (e.g. 480); the tier wall-clock caps assume
-    # an A40, not a 1650.
+    # AR-041 (~4.6M params), but: micro-batch 256 x grad_accum 4 == effective batch
+    # 1024 (matches the A40 champion's optimizer batch). The model is small enough that
+    # activations dominate VRAM (~2.5-3.8 MB/example at window 5); batch 256 is ~1.5 GB,
+    # leaving comfortable headroom under 4 GB while keeping the GPU well utilised. Drop
+    # to 128 (grad_accum 8) if a display is attached and VRAM is tight; bump to 512
+    # (grad_accum 2) if running headless. fp16 not bf16 (Turing has 2x packed FP16 but
+    # no bf16 hardware); 25K battles so a run finishes inside the local ~8 h budget.
+    # Pair with an explicit, generous --budget-minutes (e.g. 480); the tier wall-clock
+    # caps assume an A40, not a 1650.
     "gtx1650": {
         "num_layers": 5, "hidden_dim": 256, "num_heads": 4, "ffn_multiplier": 3,
         "max_window": 5,
         "split_head": True, "move_identity": True, "shuffle_moves": True,
         "no_value_head": True,
-        "batch_size": 64, "grad_accum": 16, "amp": "fp16",
+        "batch_size": 256, "grad_accum": 4, "amp": "fp16",
         "lr": 4e-4, "warmup_steps": 300, "patience": 20,
         "num_battles": 25_000,
         "num_workers": 6, "prefetch_factor": 4,
