@@ -23,7 +23,7 @@ docker/sandbox/
 ├── Dockerfile              # claude container (Node + Claude Code, non-root)
 ├── Dockerfile.proxy        # squid container
 ├── squid.conf              # allow-list policy
-├── allowed_domains.txt     # the 10 permitted hostnames
+├── allowed_domains.txt     # the 11 permitted hostnames
 ├── .env.example            # optional: only for API-key billing instead of a subscription
 └── .gitignore              # keeps .env and review-output out of git
 ```
@@ -214,10 +214,10 @@ re-copy the project and log in again.
 - **No root / no privilege escalation.** Runs as the non-root `claude` user,
   `cap_drop: ALL` removes all Linux capabilities, and `no-new-privileges:true`
   blocks setuid escalation. There is no `sudo` in the image.
-- **No open internet.** The proxy permits **only** these 10 hosts; every other
+- **No open internet.** The proxy permits **only** these 11 hosts; every other
   destination gets a `403` from Squid:
-  `api.anthropic.com`, `claude.ai`, `github.com`, `api.github.com`,
-  `raw.githubusercontent.com`, `objects.githubusercontent.com`,
+  `api.anthropic.com`, `claude.ai`, `platform.claude.com`, `github.com`,
+  `api.github.com`, `raw.githubusercontent.com`, `objects.githubusercontent.com`,
   `codeload.github.com`, `lfs.github.com`, `github-cloud.githubusercontent.com`,
   `github-cloud.s3.amazonaws.com`. (`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`
   keeps telemetry/auto-update off so nothing else is needed.)
