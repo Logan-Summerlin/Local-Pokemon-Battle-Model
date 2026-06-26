@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data - raw replays gitignored (too large), processed data tracked
+data/raw/*.json.lz4
+data/raw/*.tar.gz
+data/processed/*.parquet
+data/processed/*.bin
+
+# Fine-tuning data - raw replays and processed battles tracked for reproducibility
+# data/fine-tuning/raw/*.json.lz4  -- tracked in git (300 replays, separate from training)
+# data/fine-tuning/processed/battles/*.npz  -- tracked in git
+# data/fine-tuning/splits/  -- tracked in git
+
+# Checkpoints (large model files - baseline checkpoints tracked)
+# checkpoints/baseline_mlp/ and checkpoints/baseline_gru/ are tracked
+checkpoints/transformer/
+checkpoints/transformer_smoke/
+checkpoints/transformer_small/
+checkpoints/phase4_250/*.pt
+checkpoints/phase4_smoke/*.pt
+checkpoints/phase4_small/*.pt
+checkpoints/phase4_full/*.pt
+checkpoints/*.ckpt
+
+# Experiment tracking
+wandb/
+mlruns/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AutoResearch experiment outputs (large)
+experiments/*/
+!experiments/.gitkeep
+checkpoints/autoresearch_*/
+data/processed/battles/
+data/processed/metadata.json
+data/processed/perspective_map.json
+data/processed/priors.json
+data/splits/
+data/raw/sampling_manifest.json
+data/curriculum/
+
+# Environment variables
+.env

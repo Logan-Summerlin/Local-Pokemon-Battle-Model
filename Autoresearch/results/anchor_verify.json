@@ -1,0 +1,98 @@
+{
+  "test_loss": 1.0148,
+  "test_policy_loss": 1.0147,
+  "test_aux_loss": 0.0004,
+  "test_value_loss": 0.0,
+  "test_accuracy": 0.6321,
+  "test_top3_accuracy": 0.8926,
+  "test_nll": 1.0148,
+  "test_examples": 86718,
+  "move_accuracy": 0.7417,
+  "move_count": 56469,
+  "switch_accuracy": 0.4275,
+  "switch_count": 30249,
+  "expected_calibration_error": 0.0468,
+  "per_action_accuracy": {
+    "move1": {
+      "accuracy": 0.7505,
+      "count": 14100
+    },
+    "move2": {
+      "accuracy": 0.7271,
+      "count": 13977
+    },
+    "move3": {
+      "accuracy": 0.7462,
+      "count": 15118
+    },
+    "move4": {
+      "accuracy": 0.7427,
+      "count": 13274
+    },
+    "switch2": {
+      "accuracy": 0.482,
+      "count": 7374
+    },
+    "switch3": {
+      "accuracy": 0.4203,
+      "count": 7076
+    },
+    "switch4": {
+      "accuracy": 0.3711,
+      "count": 6534
+    },
+    "switch5": {
+      "accuracy": 0.4052,
+      "count": 5698
+    },
+    "switch6": {
+      "accuracy": 0.4682,
+      "count": 3567
+    }
+  },
+  "calibration": {
+    "0.0-0.2": {
+      "mean_confidence": 0.1858,
+      "mean_accuracy": 0.1638,
+      "count": 177
+    },
+    "0.2-0.4": {
+      "mean_confidence": 0.3249,
+      "mean_accuracy": 0.3011,
+      "count": 13477
+    },
+    "0.4-0.6": {
+      "mean_confidence": 0.4992,
+      "mean_accuracy": 0.4562,
+      "count": 22167
+    },
+    "0.6-0.8": {
+      "mean_confidence": 0.6971,
+      "mean_accuracy": 0.6193,
+      "count": 17477
+    },
+    "0.8-1.0": {
+      "mean_confidence": 0.9302,
+      "mean_accuracy": 0.8851,
+      "count": 31512
+    }
+  },
+  "auxiliary_accuracy": {
+    "item": 0.9999,
+    "speed": 0.0,
+    "role": 0.0
+  },
+  "auxiliary_counts": {
+    "item": 129771,
+    "speed": 0,
+    "role": 0
+  },
+  "throughput_examples_per_sec": 2766.3,
+  "wall_time_sec": 31.35,
+  "checkpoint": "checkpoints/phase4_p8_lean_50k/seed_42/best_model.pt",
+  "data_dir": "data/processed",
+  "num_battles_loaded": 50000,
+  "num_test_battles": 5000,
+  "seed": 42,
+  "max_window": 2
+}

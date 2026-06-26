@@ -1,0 +1,13 @@
+{
+  "name": "weather",
+  "tokens": {
+    "": 0,
+    "unknown": 1,
+    "noweather": 2,
+    "sandstorm": 3,
+    "raindance": 4,
+    "sunnyday": 5,
+    "hail": 6
+  },
+  "frozen": true
+}

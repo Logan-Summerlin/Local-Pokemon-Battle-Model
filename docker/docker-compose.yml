@@ -1,0 +1,53 @@
+# Local autonomous training stack for the GTX 1650 box.
+#
+# Prereqs on the HOST:
+#   * NVIDIA driver (>= 530 recommended for CUDA 12.1)
+#   * Docker Engine + NVIDIA Container Toolkit (nvidia-container-toolkit)
+#       https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+#
+# Usage:
+#   export ANTHROPIC_API_KEY=sk-ant-...
+#   docker compose -f docker/docker-compose.yml build
+#   docker compose -f docker/docker-compose.yml run --rm trainer            # shell
+#   docker compose -f docker/docker-compose.yml run --rm trainer claude     # autonomous agent
+#
+# The whole repo (code + processed data + checkpoints) is bind-mounted at
+# /workspace, so experiment commits and `git push` happen on your host clone.
+
+services:
+  trainer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: pokemon-battle-autoresearch:local
+    # Bind-mount the repo root (the directory ABOVE docker/) into the container.
+    volumes:
+      - ..:/workspace
+      # Persist HuggingFace downloads (curriculum tar, etc.) across runs.
+      - hf_cache:/workspace/.hf_cache
+      # Optional: share host git identity / credentials for autonomous pushes.
+      - ${HOME}/.gitconfig:/root/.gitconfig:ro
+    working_dir: /workspace
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - HF_HOME=/workspace/.hf_cache
+      # Cap DataLoader worker CPU oversubscription on a mid-range CPU.
+      - OMP_NUM_THREADS=4
+    # 15 GB host RAM: keep a ceiling so a runaway loader can't OOM the desktop.
+    shm_size: "2gb"
+    mem_limit: "13g"
+    # Keep STDIN/TTY open so an interactive `claude` session works.
+    stdin_open: true
+    tty: true
+    # ── GPU passthrough (NVIDIA Container Toolkit) ──
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  hf_cache:
