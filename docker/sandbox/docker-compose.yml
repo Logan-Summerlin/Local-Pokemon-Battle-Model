@@ -1,0 +1,73 @@
+services:
+  # --------------------------------------------------------------------------
+  # Egress proxy: the ONLY container with real internet access.
+  # Squid allows CONNECT only to the allow-listed domains; everything else 403.
+  # --------------------------------------------------------------------------
+  proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.proxy
+    container_name: claude-proxy
+    restart: unless-stopped
+    networks:
+      - egress      # has internet
+      - sandbox     # talks to the claude container (internal-only)
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD", "sh", "-c", "squidclient -h 127.0.0.1 mgr:info >/dev/null 2>&1 || nc -z 127.0.0.1 3128"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------------------
+  # Claude Code sandbox: NO direct internet. All egress goes through `proxy`.
+  # Runs as non-root, no caps, no new privileges, capped RAM/CPU/PIDs.
+  # --------------------------------------------------------------------------
+  claude:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claude-sandbox
+    depends_on:
+      proxy:
+        condition: service_healthy
+    networks:
+      - sandbox     # internal-only: cannot reach the internet on its own
+    environment:
+      # Force every HTTP(S) client (node/claude, git, curl, npm) through Squid.
+      HTTP_PROXY: "http://proxy:3128"
+      HTTPS_PROXY: "http://proxy:3128"
+      http_proxy: "http://proxy:3128"
+      https_proxy: "http://proxy:3128"
+      NO_PROXY: "localhost,127.0.0.1,proxy"
+      no_proxy: "localhost,127.0.0.1,proxy"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY in .env}"
+    volumes:
+      - workspace:/workspace          # named volume, NOT a host bind mount
+    working_dir: /workspace
+    user: "claude"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: false
+    mem_limit: 4g
+    memswap_limit: 4g                  # = mem_limit -> no swap, hard RAM cap
+    cpus: 2.0
+    pids_limit: 512
+    # Keep the container alive so you can `exec` into it. Claude is launched
+    # manually (see the guide), never as the container's main process.
+    command: ["sleep", "infinity"]
+
+networks:
+  egress:
+    driver: bridge          # normal bridge -> NAT to the internet
+  sandbox:
+    driver: bridge
+    internal: true          # NO route off the host; this is the key control
+
+volumes:
+  workspace:                # docker-managed named volume for /workspace

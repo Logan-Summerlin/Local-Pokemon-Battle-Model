@@ -1,0 +1,11 @@
+# Exact hostnames Claude Code is allowed to reach. One per line.
+# (Squid dstdomain: no leading dot = exact host match.)
+api.anthropic.com
+github.com
+api.github.com
+raw.githubusercontent.com
+objects.githubusercontent.com
+codeload.github.com
+lfs.github.com
+github-cloud.githubusercontent.com
+github-cloud.s3.amazonaws.com
