@@ -254,6 +254,46 @@ real working tree.
 
 ---
 
+## 6b. Git workflow — push Claude's changes to GitHub (optional token)
+
+The container has **no GitHub credentials** by default, so Claude can commit
+locally but not push/pull. To get a clean branch → PR → merge loop in your
+browser, give the container a **fine-grained Personal Access Token scoped to only
+this repo** (`Contents: Read and write`). It can touch nothing else, and the
+container can only reach GitHub anyway.
+
+**Install the token once** (stored in `/home/claude`, on the persistent
+`claude_config` volume, so it survives restarts/rebuilds):
+
+```bash
+docker compose exec claude bash
+# inside:
+read -rsp "Paste GitHub token: " TOKEN; echo
+git config --global credential.helper store
+git config --global user.name  "Your Name"
+git config --global user.email "you@example.com"
+printf "https://<your-gh-username>:%s@github.com\n" "$TOKEN" > ~/.git-credentials
+chmod 600 ~/.git-credentials
+unset TOKEN
+git -C /workspace/<project> ls-remote origin >/dev/null && echo "AUTH OK"
+```
+
+**The loop:**
+
+```bash
+# 1. push the branch Claude committed to
+cd /workspace/<project> && git push -u origin <branch>
+# 2. on github.com: open the Pull Request for <branch>, review, Merge to main
+# 3. update the workspace, then keep going
+git checkout main && git pull origin main
+claude --dangerously-skip-permissions
+```
+
+You still review every change in the PR before it lands on `main` — the token
+just removes the manual copy-out/copy-in bridge.
+
+---
+
 ## 7. Teardown
 
 ```bash
