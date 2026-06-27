@@ -58,7 +58,13 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
 from src.data.tensorizer import BattleVocabularies
-from src.data.auxiliary_labels import NUM_ITEM_CLASSES
+from src.data.auxiliary_labels import (
+    NUM_ITEM_CLASSES,
+    NUM_MOVE_FAMILIES,
+    classify_speed,
+    classify_role_from_stats,
+    classify_move_families,
+)
 from src.models.battle_transformer import (
     BattleTransformer,
     TransformerConfig,
@@ -193,6 +199,9 @@ class WindowedTurnDataset(Dataset):
                 "action": torch.from_numpy(battle["action"]).long(),
                 "game_result": torch.from_numpy(battle["game_result"]).float(),
                 "item_targets": torch.from_numpy(battle["item_targets"]).long(),
+                "speed_targets": torch.from_numpy(battle["speed_targets"]).long(),
+                "role_targets": torch.from_numpy(battle["role_targets"]).long(),
+                "move_family_targets": torch.from_numpy(battle["move_family_targets"]).long(),
             }
             self.battles.append(tensor_battle)
 
@@ -279,6 +288,9 @@ class WindowedTurnDataset(Dataset):
             "game_result": battle["game_result"][t_idx],
             "seq_len": torch.tensor(actual_len, dtype=torch.long),
             "item_targets": battle["item_targets"][t_idx],
+            "speed_targets": battle["speed_targets"][t_idx],
+            "role_targets": battle["role_targets"][t_idx],
+            "move_family_targets": battle["move_family_targets"][t_idx],
         }
 
 
@@ -294,6 +306,9 @@ def collate_windowed(batch: list[dict[str, torch.Tensor]]) -> dict[str, torch.Te
     result["game_result"] = torch.stack([item["game_result"] for item in batch])
 
     result["item_targets"] = torch.stack([item["item_targets"] for item in batch])
+    result["speed_targets"] = torch.stack([item["speed_targets"] for item in batch])
+    result["role_targets"] = torch.stack([item["role_targets"] for item in batch])
+    result["move_family_targets"] = torch.stack([item["move_family_targets"] for item in batch])
 
     # Sequence tensors: right-pad to max_len (model masks padding via seq_len)
     for key in ["own_team", "opponent_team", "field", "context", "legal_mask"]:
@@ -415,7 +430,12 @@ def forward_step(
         index=last_idx.unsqueeze(1).unsqueeze(2).expand(-1, 1, NUM_ACTIONS),
     ).squeeze(1)
 
-    aux_targets = {"item_targets": batch["item_targets"]}
+    aux_targets = {
+        "item_targets": batch["item_targets"],
+        "speed_targets": batch["speed_targets"],
+        "role_targets": batch["role_targets"],
+        "move_family_targets": batch["move_family_targets"],
+    }
 
     loss, loss_dict = compute_total_loss(
         output, action, legal_last,
@@ -602,8 +622,29 @@ def load_all_battles(data_dir, max_battles=None, battle_manifest=None):
     return sequences, vocabs
 
 
-def add_auxiliary_labels(sequences):
-    """Add auxiliary labels from tensorized features."""
+# Per-pokemon feature indices in the 28-dim tensor vector (see tensorizer.py):
+# categorical species(0) moves(1-4) item(5) ...; base stats are the 6 continuous
+# values at 17-22 (hp, atk, def, spa, spd, spe), each normalized by /255.
+_AUX_FEAT_HP, _AUX_FEAT_ATK, _AUX_FEAT_DEF = 17, 18, 19
+_AUX_FEAT_SPA, _AUX_FEAT_SPD, _AUX_FEAT_SPE = 20, 21, 22
+
+
+def add_auxiliary_labels(sequences, vocabs=None):
+    """Add auxiliary hidden-info targets from tensorized opponent features.
+
+    Targets (one per opponent slot, ``-1`` = unknown/masked):
+      - item_targets:        opponent item vocab index hashed into item classes.
+      - speed_targets:       speed bucket from revealed base speed (idx 22 * 255).
+      - role_targets:        role archetype from revealed base stats + move names.
+      - move_family_targets: multi-hot move families from revealed move identities.
+
+    Speed/role/move-family require the moves vocab (to decode move identity
+    indices back to names); pass ``vocabs`` to enable them. All targets respect
+    the hidden-information doctrine: only non-empty opponent slots get labels, and
+    attributes that were never revealed stay ``-1``.
+    """
+    moves_vocab = getattr(vocabs, "moves", None)
+
     augmented = []
     for seq in sequences:
         new_seq = dict(seq)
@@ -614,19 +655,61 @@ def add_auxiliary_labels(sequences):
         seq_len, n_slots = opp_team.shape[0], opp_team.shape[1]
 
         item_targets = np.full((seq_len, n_slots), -1, dtype=np.int64)
+        speed_targets = np.full((seq_len, n_slots), -1, dtype=np.int64)
+        role_targets = np.full((seq_len, n_slots), -1, dtype=np.int64)
+        move_family_targets = np.full(
+            (seq_len, n_slots, NUM_MOVE_FAMILIES), -1, dtype=np.int64
+        )
+
         for t in range(seq_len):
             for s in range(n_slots):
                 feat = opp_team[t, s]
                 if int(feat[0]) == 0:
-                    continue
+                    continue  # empty/padding slot
+
                 item_idx = int(feat[5])
                 if item_idx > 1:
                     item_targets[t, s] = min(item_idx % NUM_ITEM_CLASSES, NUM_ITEM_CLASSES - 1)
 
+                # De-normalize base stats (stored as stat / 255.0).
+                base_hp = int(round(float(feat[_AUX_FEAT_HP]) * 255))
+                base_atk = int(round(float(feat[_AUX_FEAT_ATK]) * 255))
+                base_def = int(round(float(feat[_AUX_FEAT_DEF]) * 255))
+                base_spa = int(round(float(feat[_AUX_FEAT_SPA]) * 255))
+                base_spd = int(round(float(feat[_AUX_FEAT_SPD]) * 255))
+                base_spe = int(round(float(feat[_AUX_FEAT_SPE]) * 255))
+
+                if base_spe > 0:
+                    speed_targets[t, s] = classify_speed(base_spe)
+
+                # Decode revealed move identities (skip PAD=0 / UNK=1).
+                move_names: list[str] = []
+                if moves_vocab is not None:
+                    for mi in range(1, 5):
+                        midx = int(feat[mi])
+                        if midx > 1:
+                            move_names.append(moves_vocab.decode(midx))
+
+                if base_atk > 0 or base_spa > 0 or move_names:
+                    role_targets[t, s] = classify_role_from_stats(
+                        base_atk, base_spa, base_def, base_spd, base_hp, move_names,
+                    )
+
+                if move_names:
+                    move_family_targets[t, s] = np.array(
+                        classify_move_families(move_names), dtype=np.int64
+                    )
+
         if not is_seq:
             item_targets = item_targets[0]
+            speed_targets = speed_targets[0]
+            role_targets = role_targets[0]
+            move_family_targets = move_family_targets[0]
 
         new_seq["item_targets"] = item_targets
+        new_seq["speed_targets"] = speed_targets
+        new_seq["role_targets"] = role_targets
+        new_seq["move_family_targets"] = move_family_targets
         augmented.append(new_seq)
     return augmented
 
@@ -783,6 +866,16 @@ def save_checkpoint(model, optimizer, config, epoch, val_loss, checkpoint_dir, i
             "auxiliary_loss_weight": config.auxiliary_loss_weight,
             "use_value_head": config.use_value_head,
             "value_loss_weight": config.value_loss_weight,
+            # A1 (fix 002): persist policy-head, loss-tuning, and sequence config
+            # so checkpoints can be reconstructed outside their training run.
+            "use_candidate_head": config.use_candidate_head,
+            "use_split_head": config.use_split_head,
+            "move_identity_candidates": config.move_identity_candidates,
+            "policy_head_layers": config.policy_head_layers,
+            "action_self_attention": config.action_self_attention,
+            "switch_weight": config.switch_weight,
+            "label_smoothing": config.label_smoothing,
+            "max_seq_len": config.max_seq_len,
         },
     }
     checkpoint_dir = Path(checkpoint_dir)
@@ -1072,9 +1165,9 @@ def main() -> None:
     gc.collect()
 
     # Auxiliary labels
-    train_seqs = add_auxiliary_labels(train_seqs)
-    val_seqs = add_auxiliary_labels(val_seqs)
-    test_seqs = add_auxiliary_labels(test_seqs)
+    train_seqs = add_auxiliary_labels(train_seqs, vocabs)
+    val_seqs = add_auxiliary_labels(val_seqs, vocabs)
+    test_seqs = add_auxiliary_labels(test_seqs, vocabs)
 
     # Create windowed datasets (shuffle moves only for training, not val)
     train_dataset = WindowedTurnDataset(train_seqs, max_window=args.max_window, shuffle_moves=args.shuffle_moves)

@@ -180,24 +180,22 @@ def _normalize_move(name: str) -> str:
     return name.lower().replace(" ", "").replace("-", "").replace("_", "")
 
 
-def classify_role(
-    poke: ParsedPokemon,
-    moves_used: list[str] | None = None,
+def classify_role_from_stats(
+    base_atk: int,
+    base_spa: int,
+    base_def: int,
+    base_spd: int,
+    base_hp: int,
+    moves: list[str] | None = None,
 ) -> int:
-    """Classify a pokemon's competitive role based on stats and moves.
+    """Classify a pokemon's competitive role from raw base stats + move names.
 
-    Uses base stats + known move pool to infer role archetype.
+    This is the tensor-derivable role classifier: it takes only the numeric base
+    stats and a list of revealed move names, so it can be called from the training
+    pipeline (which has tensorized features, not a ParsedPokemon). ``classify_role``
+    delegates here so the logic lives in one place.
     """
-    if poke is None:
-        return 7  # support as default
-
-    # Normalize moves
-    all_moves: set[str] = set()
-    if moves_used:
-        all_moves.update(_normalize_move(m) for m in moves_used)
-    for m in poke.moves:
-        if m.name:
-            all_moves.update([_normalize_move(m.name)])
+    all_moves: set[str] = {_normalize_move(m) for m in (moves or []) if m}
 
     # Check for pivot moves
     if all_moves & _PIVOT_MOVES:
@@ -207,12 +205,11 @@ def classify_role(
     if all_moves & _HAZARD_MOVES:
         return 6  # hazard_setter
 
-    # Check attack stats
-    atk = poke.base_atk
-    spa = poke.base_spa
-    def_stat = poke.base_def
-    spd = poke.base_spd
-    hp = poke.base_hp
+    atk = base_atk
+    spa = base_spa
+    def_stat = base_def
+    spd = base_spd
+    hp = base_hp
 
     # Bulk score
     phys_bulk = hp * def_stat
@@ -255,6 +252,30 @@ def classify_role(
         return 3 if def_stat > spd else 4
     else:
         return 7  # support
+
+
+def classify_role(
+    poke: ParsedPokemon,
+    moves_used: list[str] | None = None,
+) -> int:
+    """Classify a pokemon's competitive role based on stats and moves.
+
+    Uses base stats + known move pool to infer role archetype.
+    """
+    if poke is None:
+        return 7  # support as default
+
+    move_names: list[str] = list(moves_used or [])
+    move_names += [m.name for m in poke.moves if m.name]
+
+    return classify_role_from_stats(
+        poke.base_atk,
+        poke.base_spa,
+        poke.base_def,
+        poke.base_spd,
+        poke.base_hp,
+        move_names,
+    )
 
 
 # ── Move family classification ───────────────────────────────────────────
