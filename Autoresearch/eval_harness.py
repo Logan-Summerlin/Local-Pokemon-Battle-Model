@@ -89,6 +89,16 @@ def load_checkpoint(checkpoint_path: str, device: torch.device) -> tuple[BattleT
         auxiliary_loss_weight=cfg_dict.get("auxiliary_loss_weight", 0.2),
         use_value_head=cfg_dict.get("use_value_head", False),
         value_loss_weight=cfg_dict.get("value_loss_weight", 0.1),
+        # A1 (fix 002): reconstruct policy-head config. Defaults mirror the
+        # TransformerConfig dataclass so pre-fix checkpoints still load.
+        use_candidate_head=cfg_dict.get("use_candidate_head", False),
+        use_split_head=cfg_dict.get("use_split_head", False),
+        move_identity_candidates=cfg_dict.get("move_identity_candidates", False),
+        policy_head_layers=cfg_dict.get("policy_head_layers", 1),
+        action_self_attention=cfg_dict.get("action_self_attention", False),
+        switch_weight=cfg_dict.get("switch_weight", 1.0),
+        label_smoothing=cfg_dict.get("label_smoothing", 0.0),
+        max_seq_len=cfg_dict.get("max_seq_len", 50),
     )
 
     model = BattleTransformer(config)
@@ -302,7 +312,7 @@ def main():
 
     # Load and split data
     sequences, vocabs = load_all_battles(args.data_dir, max_battles=args.num_battles)
-    sequences = add_auxiliary_labels(sequences)
+    sequences = add_auxiliary_labels(sequences, vocabs)
     _, _, test_data = split_data(sequences, seed=args.seed)
     logger.info(f"Test set: {len(test_data)} battles")
 
