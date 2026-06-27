@@ -372,6 +372,15 @@ protects the real repo.
   To repair an existing copy:
   `docker run --rm -u 0:0 -v sandbox_workspace:/workspace sandbox-claude chown -R claude:claude /workspace`
 
+- **Files owned by uid 1001 but Claude runs as uid 1000 (or vice-versa).** This
+  happens if you chowned `/workspace` while on an *older* image build whose
+  `claude` user had a different uid (the CUDA/Ubuntu base ships a default uid-1000
+  user, which the image now removes to pin `claude` to 1000). Fix: find the
+  running uid and chown to it:
+  `docker compose exec claude id -u` then
+  `docker run --rm -u 0:0 -v sandbox_workspace:/workspace sandbox-claude chown -R <uid>:<uid> /workspace`.
+  After pulling the pinned-uid image and rebuilding, `claude` is always uid 1000.
+
 - **"Do you trust the files in this folder?" prompt.** This is Claude Code's
   one-time folder-trust gate (separate from `--dangerously-skip-permissions`).
   Select **Yes**; the choice is saved in the `claude_config` volume.

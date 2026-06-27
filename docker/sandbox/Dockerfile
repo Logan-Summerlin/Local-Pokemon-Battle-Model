@@ -54,7 +54,14 @@ RUN npm install -g @anthropic-ai/claude-code \
     && npm cache clean --force
 
 # ── Non-root user that owns the workspace ──
-RUN useradd --create-home --shell /bin/bash claude \
+# Pin claude to a FIXED uid/gid (1000) so file ownership is stable across image
+# rebuilds and machines. The Ubuntu/CUDA base may ship a default user occupying
+# uid 1000; remove it first so 'claude' deterministically gets 1000 (otherwise
+# it drifts to 1001 and breaks /workspace ownership after a rebuild).
+RUN (userdel -r ubuntu 2>/dev/null || true) \
+    && (groupdel ubuntu 2>/dev/null || true) \
+    && groupadd --gid 1000 claude \
+    && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash claude \
     && mkdir -p /workspace /home/claude/.claude \
     && chown -R claude:claude /workspace /home/claude
 
