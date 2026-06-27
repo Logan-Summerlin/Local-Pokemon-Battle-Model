@@ -186,8 +186,9 @@ If `cuda True` and your GPU name print, training is ready.
 ## 4. Log in (one-time, interactive)
 
 The container has no browser, so you do a one-time **manual** OAuth login. Your
-credentials are saved to `/home/claude/.claude`, which is a named volume
-(`claude_config`), so this survives restarts and rebuilds — you only do it once.
+credentials and folder-trust live under `/home/claude` (both `~/.claude/` and
+`~/.claude.json`), which is the `claude_config` named volume — so login and trust
+survive restarts and rebuilds; you only do this once.
 
 ```bash
 # Open a shell in the sandbox as the non-root user
@@ -303,7 +304,7 @@ re-copy the project and log in again.
 This sandbox contains Claude; it does not make Claude harmless.
 
 - ⚠️ **Claude can read your login credentials.** Your subscription token lives in
-  `/home/claude/.claude` (or the API key in the environment, if you chose that).
+  `/home/claude` (or the API key in the environment, if you chose that).
   Anything running inside the container can read it. It's bounded to *this* account.
 - ⚠️ **Claude can modify or delete anything in `/workspace`.** That's the point of
   `--dangerously-skip-permissions`. Anything you copy in is fair game, including

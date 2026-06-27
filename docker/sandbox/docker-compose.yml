@@ -58,7 +58,9 @@ services:
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
     volumes:
       - workspace:/workspace                  # named volume, NOT a host bind mount
-      - claude_config:/home/claude/.claude    # persists your Pro/Max login
+      # Persist the WHOLE home dir so both ~/.claude/ AND ~/.claude.json (login +
+      # folder-trust + project config) survive container rebuilds.
+      - claude_config:/home/claude
     working_dir: /workspace
     user: "claude"
     security_opt:
