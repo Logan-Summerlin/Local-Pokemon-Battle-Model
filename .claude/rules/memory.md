@@ -33,11 +33,20 @@ settings do not transfer to the 1650.
    dataset expansion (many undownloaded 1000–1500-bin Metamon battles are likely unrated).
 4. **Registry-first** — hypothesis, parent, tier, one variable, KILL/RETRY/PROMOTE.
 
-## Known Bugs (both HIGH — fix in Phase A before anything else)
-- Checkpoints don't persist policy-head flags → eval_harness cannot load AR-020:
-  `important_fixes/002_checkpoint_missing_head_flags.md`
-- Auxiliary speed/role/move-family heads get zero gradient (0% accuracy):
-  `important_fixes/001_auxiliary_head_missing_targets.md`
+## Known Bugs
+- **[FIXED — A1] Checkpoint head-flag persistence** (`important_fixes/002`).
+  `save_checkpoint` now writes the policy-head/loss/seq flags and
+  `eval_harness.load_checkpoint` reconstructs them via `.get(default)` (pre-fix
+  checkpoints still load). Verified: split-head model round-trips with no
+  state_dict error, reconstructs to 5,653,245 params (== AR-020 param_count).
+  **Still open:** the actual AR-020 `best_model.pt` is NOT in this workspace
+  (registry points to a separate `/workspace/Pokemon-Battle-Autoresearch`
+  checkout), so it has not been re-saved/metric-reproduced here.
+- **[FIXED — A2] Aux speed/role/move-family targets** (`important_fixes/001`).
+  `add_auxiliary_labels(sequences, vocabs)` derives them from tensorized opponent
+  features (base stats at feat idx 17–22 ÷255; move IDs decoded via moves vocab),
+  threaded through dataset/collate/forward_step. Verified: val logs show
+  aux speed≈0.39, role≈0.38 (was 0.0).
 - Switch prediction 60.51% vs 71.86% for moves (biggest offline accuracy lever)
 - Calibration: systematic overconfidence in 0.4–0.8 range
 
