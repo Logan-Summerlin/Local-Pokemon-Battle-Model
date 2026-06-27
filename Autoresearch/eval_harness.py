@@ -120,9 +120,19 @@ def evaluate_full(
     batch_size: int = 64,
     max_window: int = 20,
     num_workers: int = 0,
+    shuffle_moves: bool = False,
+    shuffle_seed: int = 1234,
 ) -> dict:
-    """Full evaluation with detailed metrics."""
-    dataset = WindowedTurnDataset(test_data, max_window=max_window)
+    """Full evaluation with detailed metrics.
+
+    When ``shuffle_moves`` is set, the test battles get a (deterministic) random
+    permutation of their move slots — the Invariant-1 tripwire. A move-identity
+    model should be unaffected (labels are remapped consistently); a slot-cheating
+    model collapses.
+    """
+    if shuffle_moves:
+        torch.manual_seed(shuffle_seed)
+    dataset = WindowedTurnDataset(test_data, max_window=max_window, shuffle_moves=shuffle_moves)
     loader = DataLoader(
         dataset,
         batch_size=batch_size,
@@ -302,6 +312,10 @@ def main():
     parser.add_argument("--max-window", type=int, default=20)
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--no-shuffle-tripwire", action="store_true",
+                        help="Skip the Invariant-1 shuffled-moveset tripwire (on by default).")
+    parser.add_argument("--shuffle-collapse-threshold", type=float, default=0.05,
+                        help="Top-1 drop under shuffle above which the tripwire FAILS (KILL).")
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -323,6 +337,27 @@ def main():
         max_window=args.max_window,
         num_workers=args.num_workers,
     )
+
+    # Invariant 1: shuffled-moveset tripwire. A move-identity model should be
+    # unaffected; a slot-cheating model collapses -> KILL.
+    if not args.no_shuffle_tripwire:
+        shuf = evaluate_full(
+            model, test_data, config, device,
+            batch_size=args.batch_size,
+            max_window=args.max_window,
+            num_workers=args.num_workers,
+            shuffle_moves=True,
+        )
+        drop = round(results["test_accuracy"] - shuf["test_accuracy"], 4)
+        results["shuffle_tripwire"] = {
+            "shuffled_top1": shuf["test_accuracy"],
+            "shuffled_top3": shuf["test_top3_accuracy"],
+            "shuffled_move_accuracy": shuf["move_accuracy"],
+            "shuffled_switch_accuracy": shuf["switch_accuracy"],
+            "top1_drop": drop,
+            "collapse_threshold": args.shuffle_collapse_threshold,
+            "passed": bool(drop <= args.shuffle_collapse_threshold),
+        }
 
     # Add metadata
     results["checkpoint"] = args.checkpoint
@@ -353,6 +388,11 @@ def main():
     print(f"\n  Aux item acc:     {results['auxiliary_accuracy']['item'] * 100:.2f}%")
     print(f"  Aux speed acc:    {results['auxiliary_accuracy']['speed'] * 100:.2f}%")
     print(f"  Aux role acc:     {results['auxiliary_accuracy']['role'] * 100:.2f}%")
+    if "shuffle_tripwire" in results:
+        tw = results["shuffle_tripwire"]
+        status = "PASS" if tw["passed"] else "FAIL (KILL — slot-cheating)"
+        print(f"\n  Shuffle tripwire: {status}")
+        print(f"    shuffled top-1: {tw['shuffled_top1'] * 100:.2f}%  (drop {tw['top1_drop'] * 100:+.2f}pp)")
     print("=" * 60)
     print(f"\nSaved to: {output_path}")
 
